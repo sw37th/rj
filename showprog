@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import subprocess
+import re
+
+qstat = "/usr/local/torque/bin/qstat"
+cmd = [qstat, "-f", "-1" ]
+
+def get_torque_job_info():
+    """
+    qstat -f -1でジョブ情報を取得し、dictに詰めて返す。
+    jobs['jobid'][{"key": value, "key": value, ...}]
+    """
+
+    jobs = {}
+    with subprocess.Popen(cmd, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
+        for jinfo in pjob.stdout:
+    
+            if re.match('Job Id:', jinfo):
+                jid = jinfo.split()[2]
+                jobs[jid] = {}
+                jobs[jid]['name'] = jid
+                continue
+
+            if re.search(' = ', jinfo):
+                (jkey, jval) = jinfo.split(' = ')
+                jobs[jid][re.sub(' ','',jkey)] = jval.rstrip()
+            
+    return jobs
+
+j = get_torque_job_info()
+example_job='211.hatsuyuki.tinglytail.org'
+print("jid:", example_job, "'s name:", j[example_job]['name'])
+print("jid:", example_job, "'s Job_Name:", j[example_job]['Job_Name'])
+
+for v in sorted(j[example_job].keys()):
+    print(v, ":", j[example_job][v])
