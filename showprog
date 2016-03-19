@@ -3,21 +3,36 @@
 
 import subprocess
 import re
+import datetime
+import time
 
 qstat = "/usr/local/torque/bin/qstat"
 cmd = [qstat, "-f", "-1" ]
 
-def get_torque_job_info():
-    """
-    qstat -f -1でジョブ情報を取得し、dictに詰めて返す。
-    jobs['jobid'][{"key": value, "key": value, ...}]
-    """
+job_state = {
+    'C': "Completed",
+    'E': "Exiting",
+    'H': "on Hold",
+    'Q': "Queued",
+    'R': "Running",
+    'T': "Moved",
+    'W': "--",
+    'S': "Suspend",
+}
 
+def get_torque_job_info():
     jobs = {}
+    present = datetime.datetime.now()
+
+    #qstat -f -1でジョブ情報を取得し、２次元dictに詰める
+    #jobs['jobid'][{"key": value, "key": value, ...}]
+    #with open('qstat-f.job.all', 'r') as pjob:
+    #    for jinfo in pjob:
     with subprocess.Popen(cmd, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
         for jinfo in pjob.stdout:
     
             if re.match('Job Id:', jinfo):
+                # a job informations begin here
                 jid = jinfo.split()[2]
                 jobs[jid] = {}
                 jobs[jid]['name'] = jid
@@ -25,14 +40,59 @@ def get_torque_job_info():
 
             if re.search(' = ', jinfo):
                 (jkey, jval) = jinfo.split(' = ')
-                jobs[jid][re.sub(' ','',jkey)] = jval.rstrip()
+                jkey = re.sub(r'\s', '', jkey)
+                jobs[jid][jkey] = jval.rstrip()
             
+    # ジョブごとに情報を追加
+    for jid in jobs.keys():
+        # ジョブ開始時間をjobs[jid]['rec_end']に登録する。
+        if 'Execution_Time' in jobs[jid]:
+            # 実行開始前(State: W)のジョブ。
+            # 実行開始時間はqstat -fのExectiton_Timeから取得できる。
+            # ex. "Tue Mar 15 23:59:50 2016"
+            jobs[jid]['rec_begin'] = datetime.datetime.strptime(jobs[jid]['Execution_Time'], "%a %b %d %H:%M:%S %Y")
+        elif 'start_time' in jobs[jid]: 
+            # 実行中(State: R)、実行終了(State: C)のジョブ。
+            # 実行開始時間はqstat -fのstart_timeから取得できる。
+            # フォーマットはExecution_Timeに同じ。
+            jobs[jid]['rec_begin'] = datetime.datetime.strptime(jobs[jid]['start_time'], "%a %b %d %H:%M:%S %Y")
+        else:
+            jobs[jid]['rec_begin'] = present;
+
+        # ジョブ終了時間をjobs[jid]['rec_end']に登録する。
+        # (jobs[jid]['rec_begin'] + Resource_List.walltime)
+        (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
+        jobs[jid]['rec_end'] = jobs[jid]['rec_begin'] + datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
+
+        # タイトル、チャンネル番号
+        (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
+        jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel'])
+
+        # 録画状況
+        jobs[jid]['record_state'] = job_state[jobs[jid]['job_state']]
+
+        # 録画開始からの経過時間
+        if jobs[jid]['job_state'] == 'R':
+            jobs[jid]['elapse'] = present - jobs[jid]['rec_begin']
+        elif jobs[jid]['job_state'] == 'C':
+            (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
+            jobs[jid]['elapse'] = datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
+
+        # 実行ホスト名の末尾'/0'を削除。未実行ジョブは実行ホスト名をダミーに
+        if jobs[jid].get('exec_host'):
+            jobs[jid]['exec_host'] = re.sub('/.*$', '', jobs[jid]['exec_host'])
+        else:
+            jobs[jid]['exec_host'] = '--------'
+
     return jobs
 
-j = get_torque_job_info()
-example_job='211.hatsuyuki.tinglytail.org'
-print("jid:", example_job, "'s name:", j[example_job]['name'])
-print("jid:", example_job, "'s Job_Name:", j[example_job]['Job_Name'])
 
-for v in sorted(j[example_job].keys()):
-    print(v, ":", j[example_job][v])
+# 確認(DEBUG)
+j = get_torque_job_info()
+for jid in sorted(j.keys()):
+    print(jid)
+    for jkey in sorted(j[jid].keys()):
+        print(jkey, ":", j[jid][jkey])
+
+    print()
+
