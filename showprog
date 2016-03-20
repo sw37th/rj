@@ -33,9 +33,9 @@ def get_torque_job_info():
     
             if re.match('Job Id:', jinfo):
                 # a job informations begin here
-                jid = jinfo.split()[2]
+                jid = re.search(r'^Job Id:\s*(\d+)\.', jinfo).group(1)
                 jobs[jid] = {}
-                jobs[jid]['name'] = jid
+                jobs[jid]['JID'] = jid
                 continue
 
             if re.search(' = ', jinfo):
@@ -57,6 +57,7 @@ def get_torque_job_info():
             # フォーマットはExecution_Timeに同じ。
             jobs[jid]['rec_begin'] = datetime.datetime.strptime(jobs[jid]['start_time'], "%a %b %d %H:%M:%S %Y")
         else:
+            # ここに来るケースあるかしら？
             jobs[jid]['rec_begin'] = present;
 
         # ジョブ終了時間をjobs[jid]['rec_end']に登録する。
@@ -84,15 +85,18 @@ def get_torque_job_info():
         else:
             jobs[jid]['exec_host'] = '--------'
 
-    return jobs
+    job_array = [jobs[x] for x in sorted(jobs.keys())]              # JOB IDでソートしたジョブのリストを作成
+    job_array = sorted(job_array, key=lambda j: j['rec_begin'])     # ジョブ開始時間で再ソート
+
+    return job_array
+
 
 
 # 確認(DEBUG)
-j = get_torque_job_info()
-for jid in sorted(j.keys()):
-    print(jid)
-    for jkey in sorted(j[jid].keys()):
-        print(jkey, ":", j[jid][jkey])
+job_array = get_torque_job_info()
+for j in job_array:
+    for jkey in sorted(j.keys()):
+        print(jkey, ":", j[jkey])
 
     print()
 
