@@ -60,18 +60,18 @@ def get_torque_job_info():
             jobs[jid]['rec_begin'] = present;
 
         # ジョブ終了時間をjobs[jid]['rec_end']に登録する。
-        # (jobs[jid]['rec_begin'] + Resource_List.walltime)
+        # ジョブ開始時間 + Resource_List.walltime
         (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
         jobs[jid]['rec_end'] = jobs[jid]['rec_begin'] + datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
 
-        # タイトル、チャンネル番号
+        # タイトル、チャンネル番号を登録する
         (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
         jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel'])
 
-        # 録画状況
+        # qstatのjob_stateをわかりやすい表記に
         jobs[jid]['record_state'] = job_state[jobs[jid]['job_state']]
 
-        # 録画開始からの経過時間
+        # 録画開始からの経過時間を登録する
         if jobs[jid]['job_state'] == 'R':
             jobs[jid]['elapse'] = present - jobs[jid]['rec_begin']
         elif jobs[jid]['job_state'] == 'C':
