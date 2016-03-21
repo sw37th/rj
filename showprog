@@ -6,8 +6,11 @@ import re
 import datetime
 import time
 
-qstat = "/usr/local/torque/bin/qstat"
-cmd = [qstat, "-f", "-1" ]
+# torque commands
+qstat_path = '/usr/local/torque/bin/qstat'
+qstat = [qstat_path, '-f', '-1' ]
+pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
+pbsnodes = [pbsnodes_path, '-a' ]
 
 job_state = {
     'C': "Completed",
@@ -28,7 +31,7 @@ def get_torque_job_info():
     #jobs['jobid'][{"key": value, "key": value, ...}]
     #with open('qstat-f.job.all', 'r') as pjob:
     #    for jinfo in pjob:
-    with subprocess.Popen(cmd, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
+    with subprocess.Popen(qstat, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
         for jinfo in pjob.stdout:
     
             if re.match('Job Id:', jinfo):
@@ -79,24 +82,75 @@ def get_torque_job_info():
             (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
             jobs[jid]['elapse'] = datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
 
-        # 実行ホスト名の末尾'/0'を削除。未実行ジョブは実行ホスト名をダミーに
+        # 実行ホスト名の末尾'/0'を削除。未実行ジョブは実行ホスト名を'--------'に
         if jobs[jid].get('exec_host'):
             jobs[jid]['exec_host'] = re.sub('/.*$', '', jobs[jid]['exec_host'])
         else:
             jobs[jid]['exec_host'] = '--------'
 
-    job_array = [jobs[x] for x in sorted(jobs.keys())]              # JOB IDでソートしたジョブのリストを作成
-    job_array = sorted(job_array, key=lambda j: j['rec_begin'])     # ジョブ開始時間で再ソート
+    job_array = [jobs[x] for x in sorted(jobs.keys())]
+    job_array = sorted(job_array, key=lambda j: j['rec_begin'])
 
     return job_array
 
 
+def get_queue_info():
+    nodes = {}
+    queue_info = {}
 
-# 確認(DEBUG)
+    # pbsnodes -qの出力から以下の情報を取得する。
+    # ノード名
+    # properties: そのノードの所属するキュー名
+    # np:         チューナー数
+    # state:      ノードの状態
+    with subprocess.Popen(pbsnodes, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pnodes:
+        for ninfo in pnodes.stdout:
+            if re.match(r'^\S+', ninfo):
+                # a node informations begin here
+                n = re.search(r'^(\S+)', ninfo).group(1)
+                nodes[n] = {}
+                nodes[n]['NODENAME'] = n
+                continue
+            if re.match(r'^\s+(state|np|properties) = \S+', ninfo):
+                (key, value) = re.search(r'(state|np|properties) = (\S+)', ninfo).group(1, 2)
+                nodes[n][key] = value
+
+    # キューごとに、そのキューに所属するノードとチャンネル数を集計する。
+    # {properties: {NODENAME: np}}
+    for node in nodes.values():
+        if re.search(r'(offline|down)', node['state']):
+            # 稼動状態にないノードは除外
+            continue
+
+        if not node['properties'] in queue_info:
+            queue_info[node['properties']] = {}
+
+        queue_info[node['properties']][node['NODENAME']] = node['np']
+
+    return queue_info
+
 job_array = get_torque_job_info()
 for j in job_array:
-    for jkey in sorted(j.keys()):
-        print(jkey, ":", j[jkey])
+    print('{0:5s} {1:>3s} {2:20s} {3} {4} {5}'.format(
+    j['JID'], 
+    j['channel'], 
+    j['title'], 
+    j['rec_begin'], 
+    j['Resource_List.walltime'], 
+    j['euser'],
+    ))
 
-    print()
 
+# 確認(DEBUG)
+#job_array = get_torque_job_info()
+#for j in job_array:
+#    for jkey in sorted(j.keys()):
+#        print(jkey, ":", j[jkey])
+#
+#    print()
+
+#queue_info = get_queue_info()
+#for queue in queue_info.keys():
+#    print(queue)
+#    for v in queue_info[queue]:
+#        print('    {0}  {1}'.format(v, queue_info[queue][v]))
