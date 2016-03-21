@@ -82,11 +82,9 @@ def get_torque_job_info():
             (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
             jobs[jid]['elapse'] = datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
 
-        # 実行ホスト名の末尾'/0'を削除。未実行ジョブは実行ホスト名を'--------'に
+        # 実行ホスト名の末尾'/0'を削除。
         if jobs[jid].get('exec_host'):
             jobs[jid]['exec_host'] = re.sub('/.*$', '', jobs[jid]['exec_host'])
-        else:
-            jobs[jid]['exec_host'] = '--------'
 
     job_array = [jobs[x] for x in sorted(jobs.keys())]
     job_array = sorted(job_array, key=lambda j: j['rec_begin'])
