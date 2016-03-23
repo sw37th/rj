@@ -89,8 +89,34 @@ def get_torque_job_info():
     job_array = [jobs[x] for x in sorted(jobs.keys())]
     job_array = sorted(job_array, key=lambda j: j['rec_begin'])
 
+    chech_channel_resource(job_array)
+
     return job_array
 
+def chech_channel_resource(job_array):
+    queue_info = get_queue_info()
+
+    for job in job_array:
+        if job['job_state'] == 'C':
+            continue
+        if len(queue_info[job['queue']]['jobs']) < queue_info[job['queue']]['ch_max']:
+            # チャンネルの空きがある
+            # queue_info[job['queue']]['jobs']にこのジョブを登録
+            queue_info[job['queue']]['jobs'].append(job)
+        else:
+            # ガベージコレクト
+            for old_job in queue_info[job['queue']]['jobs']:
+                # queue_info[job['queue']]['jobs']に残っているジョブから録画終了しているものを削除
+                if job['rec_begin'] > old_job['rec_end']:
+                    queue_info[job['queue']]['jobs'].remove(old_job)
+
+            # 改めてチャンネルの空き確認
+            if len(queue_info[job['queue']]['jobs']) < queue_info[job['queue']]['ch_max']:
+                # チャンネルの空きがある
+                # queue_info[job['queue']]['jobs']にこのジョブを登録
+                queue_info[job['queue']]['jobs'].append(job)
+            else:
+                job['alart'] = 'NoResource'
 
 def get_queue_info():
     nodes = {}
@@ -114,7 +140,6 @@ def get_queue_info():
                 nodes[n][key] = value
 
     # キューごとに、そのキューに所属するノードとチャンネル数を集計する。
-    # {properties: {NODENAME: np}}
     for node in nodes.values():
         if re.search(r'(offline|down)', node['state']):
             # 稼動状態にないノードは除外
@@ -122,21 +147,34 @@ def get_queue_info():
 
         if not node['properties'] in queue_info:
             queue_info[node['properties']] = {}
+            queue_info[node['properties']]['ch_max'] = 0
+            queue_info[node['properties']]['jobs'] = []
 
-        queue_info[node['properties']][node['NODENAME']] = node['np']
+        queue_info[node['properties']]['ch_max'] += int(node['np'])
+
+        #queue_info[node['properties']][node['NODENAME']] = int(node['np'])
+
+        #queue_info[node['properties']][node['NODENAME']] = {}
+        #queue_info[node['properties']][node['NODENAME']]['ch_max'] = int(node['np'])
+        #queue_info[node['properties']][node['NODENAME']]['used'] = 0
 
     return queue_info
 
 job_array = get_torque_job_info()
 for j in job_array:
-    print('{0:5s} {1:>3s} {2:20s} {3} {4} {5}'.format(
+    print('{0:5s} {1:>3s} {2:20s} {3} {4} {5} {6}'.format(
     j['JID'], 
     j['channel'], 
     j['title'], 
     j['rec_begin'], 
     j['Resource_List.walltime'], 
     j['euser'],
-    ))
+    j['record_state'],
+    ), end='')
+    if 'alart' in j:
+        print(' ({0})'.format(j['alart']))
+    else:
+        print()
 
 
 # 確認(DEBUG)
