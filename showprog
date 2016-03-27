@@ -11,15 +11,17 @@ qstat_path = '/usr/local/torque/bin/qstat'
 qstat = [qstat_path, '-f', '-1' ]
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
 pbsnodes = [pbsnodes_path, '-a' ]
+wormup_offset_s = 10
+dateline_offset_h = 5
 
 job_state = {
     'C': "Completed",
     'E': "Exiting",
     'H': "on Hold",
     'Q': "Queued",
-    'R': "Running",
+    'R': "Recording",
     'T': "Moved",
-    'W': "--",
+    'W': "",
     'S': "Suspend",
 }
 
@@ -75,16 +77,13 @@ def get_torque_job_info():
         # qstatのjob_stateをわかりやすい表記に
         jobs[jid]['record_state'] = job_state[jobs[jid]['job_state']]
 
-        # 録画開始からの経過時間を登録する
         if jobs[jid]['job_state'] == 'R':
-            jobs[jid]['elapse'] = present - jobs[jid]['rec_begin']
-        elif jobs[jid]['job_state'] == 'C':
-            (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
-            jobs[jid]['elapse'] = datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
+            # 録画開始からの経過時間を登録する
+            elapse = (present - jobs[jid]['rec_begin']).seconds
+            jobs[jid]['record_state'] = jobs[jid]['record_state'] + "({0:02}:{1:02}:{2:02})@{3}".format(
+            int(elapse/60/60),int(elapse/60), elapse%60, re.sub('/.*$', '', jobs[jid]['exec_host'])
+            )
 
-        # 実行ホスト名の末尾'/0'を削除。
-        if jobs[jid].get('exec_host'):
-            jobs[jid]['exec_host'] = re.sub('/.*$', '', jobs[jid]['exec_host'])
 
     job_array = [jobs[x] for x in sorted(jobs.keys())]
     job_array = sorted(job_array, key=lambda j: j['rec_begin'])
@@ -160,21 +159,43 @@ def get_queue_info():
 
     return queue_info
 
+print('ID    Ch  Title                    Start           walltime user     queue')
+
 job_array = get_torque_job_info()
+prev_wday=''
 for j in job_array:
-    print('{0:5s} {1:>3s} {2:20s} {3} {4} {5} {6}'.format(
+    # 表示用に録画開始時刻マージンを埋めたdatetimeオブジェクトを作成
+    begin = j['rec_begin'] + datetime.timedelta(seconds=wormup_offset_s)
+    wday = begin.strftime("%a") if begin.hour >= dateline_offset_h else (begin - datetime.timedelta(days=1)).strftime("%a")
+    mon  = int(begin.strftime("%m")) if begin.hour >= dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%m"))
+    day  = int(begin.strftime("%d")) if begin.hour >= dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%d"))
+    hour = int(begin.strftime("%H")) if begin.hour >= dateline_offset_h else int(begin.strftime("%H")) + 24
+
+    if wday != prev_wday:
+        print('----- --- ------------------------ --------------- -------- -------- -----')
+
+    print('{0:5} {1:>3} {2:24} {3} {4:>2}/{5:2} {6:0>2}:{7:0>2} {8} {9:8} {10:5} {11}'.format(
     j['JID'], 
     j['channel'], 
     j['title'], 
-    j['rec_begin'], 
+    wday, 
+    mon, 
+    day, 
+    hour, 
+    begin.minute,
     j['Resource_List.walltime'], 
     j['euser'],
+    j['queue'],
     j['record_state'],
-    ), end='')
+    ), 
+    end='')
+
     if 'alart' in j:
         print(' ({0})'.format(j['alart']))
     else:
         print()
+    
+    prev_wday=wday
 
 
 # 確認(DEBUG)
