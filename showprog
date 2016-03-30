@@ -130,9 +130,8 @@ def get_queue_info():
         for ninfo in pnodes.stdout:
             if re.match(r'^\S+', ninfo):
                 # a node informations begin here
-                n = re.search(r'^(\S+)', ninfo).group(1)
+                n = ninfo.rstrip()
                 nodes[n] = {}
-                nodes[n]['NODENAME'] = n
                 continue
             if re.match(r'^\s+(state|np|properties) = \S+', ninfo):
                 (key, value) = re.search(r'(state|np|properties) = (\S+)', ninfo).group(1, 2)
@@ -151,12 +150,6 @@ def get_queue_info():
 
         queue_info[node['properties']]['ch_max'] += int(node['np'])
 
-        #queue_info[node['properties']][node['NODENAME']] = int(node['np'])
-
-        #queue_info[node['properties']][node['NODENAME']] = {}
-        #queue_info[node['properties']][node['NODENAME']]['ch_max'] = int(node['np'])
-        #queue_info[node['properties']][node['NODENAME']]['used'] = 0
-
     return queue_info
 
 print('ID    Ch  Title                    Start           walltime user     queue')
@@ -164,7 +157,7 @@ print('ID    Ch  Title                    Start           walltime user     queu
 job_array = get_torque_job_info()
 prev_wday=''
 for j in job_array:
-    # 表示用に録画開始時刻マージンを埋めたdatetimeオブジェクトを作成
+    # 表示用に録画開始時刻マージン分を加算したdatetimeオブジェクトを作成
     begin = j['rec_begin'] + datetime.timedelta(seconds=wormup_offset_s)
     wday = begin.strftime("%a") if begin.hour >= dateline_offset_h else (begin - datetime.timedelta(days=1)).strftime("%a")
     mon  = int(begin.strftime("%m")) if begin.hour >= dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%m"))
