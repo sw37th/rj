@@ -198,11 +198,25 @@ class RecTorque:
                 print(' ({0})'.format(j['alart']))
             else:
                 print()
-    
+
+    def add(self, ch, title, date, time, wt='00:29:30'): 
+        re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
+        if re.match(re_wday, date):
+           print(date)
 
 
 rec = RecTorque()
 rec.show()
+rec.add('20', 'test', 'sun', '22:30')
+rec.add('20', 'test', 'Mon', '22:30')
+rec.add('20', 'test', 'tHu', '22:30')
+rec.add('20', 'test', 'weD', '22:30')
+rec.add('20', 'test', 'ThU', '22:30')
+rec.add('20', 'test', 'fRi', '22:30')
+rec.add('20', 'test', 'SAt', '22:30')
+rec.add('20', 'test', 'hoge', '22:30')
+print(rec.re_wday)
+
 # 確認(DEBUG)
 #job_array = get_torque_job_info()
 #for j in job_array:
