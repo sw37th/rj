@@ -11,16 +11,14 @@ qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
 wormup_offset_s = 10
 dateline_offset_h = 5
-
-job_state = {
-    'C': "Completed",
-    'E': "Exiting",
-    'H': "on Hold",
-    'Q': "Queued",
-    'R': "Recording",
-    'T': "Moved",
-    'W': "",
-    'S': "Suspend",
+wdaynum = {
+    'mon': 0,
+    'tue': 1,
+    'wed': 2,
+    'thu': 3,
+    'fri': 4,
+    'sat': 5,
+    'sun': 6,
 }
 
 class RecTorque:
@@ -29,11 +27,20 @@ class RecTorque:
         self.pbsnodes = [pbsnodes_path, '-a' ]
         self.wormup_offset_s = wormup_offset_s
         self.dateline_offset_h = dateline_offset_h
-        self.job_state = job_state
+        self.job_state = {
+            'C': "Completed",
+            'E': "Exiting",
+            'H': "on Hold",
+            'Q': "Queued",
+            'R': "Recording",
+            'T': "Moved",
+            'W': "",
+            'S': "Suspend",
+        }
 
     def set_torque_job_info(self):
-        self.jobs = {}
-        self.present = datetime.datetime.now()
+        jobs = {}
+        present = datetime.datetime.now()
 
         # qstat -f -1でジョブ情報を取得し、２次元dictに詰める
         # jobs['jobid'][{"key": value, "key": value, ...}]
@@ -46,85 +53,85 @@ class RecTorque:
                 if re.match('Job Id:', jinfo):
                     # a job informations begin here
                     jid = re.search(r'^Job Id:\s*(\d+)\.', jinfo).group(1)
-                    self.jobs[jid] = {}
-                    self.jobs[jid]['JID'] = jid
+                    jobs[jid] = {}
+                    jobs[jid]['JID'] = jid
                     continue
 
                 if re.search(' = ', jinfo):
                     (jkey, jval) = jinfo.split(' = ')
                     jkey = re.sub(r'\s', '', jkey)
-                    self.jobs[jid][jkey] = jval.rstrip()
+                    jobs[jid][jkey] = jval.rstrip()
             
         # ジョブごとに情報を追加
-        for jid in self.jobs.keys():
-            if 'Execution_Time' in self.jobs[jid]:
+        for jid in jobs.keys():
+            if 'Execution_Time' in jobs[jid]:
                 # 実行開始前(State: W)のジョブ。
                 # 実行開始時間はqstat -fのExectiton_Timeから取得できる。
                 # ex. "Tue Mar 15 23:59:50 2016"
-                self.jobs[jid]['rec_begin'] = datetime.datetime.strptime(self.jobs[jid]['Execution_Time'], "%a %b %d %H:%M:%S %Y")
-            elif 'start_time' in self.jobs[jid]: 
+                jobs[jid]['rec_begin'] = datetime.datetime.strptime(jobs[jid]['Execution_Time'], "%a %b %d %H:%M:%S %Y")
+            elif 'start_time' in jobs[jid]: 
                 # 実行中(State: R)、実行終了(State: C)のジョブ。
                 # 実行開始時間はqstat -fのstart_timeから取得できる。
                 # フォーマットはExecution_Timeに同じ。
-                self.jobs[jid]['rec_begin'] = datetime.datetime.strptime(self.jobs[jid]['start_time'], "%a %b %d %H:%M:%S %Y")
+                jobs[jid]['rec_begin'] = datetime.datetime.strptime(jobs[jid]['start_time'], "%a %b %d %H:%M:%S %Y")
             else:
                 # ここに来るケースあるかしら？
-                self.jobs[jid]['rec_begin'] = self.present;
+                jobs[jid]['rec_begin'] = present;
 
             # ジョブ終了時間をjobs[jid]['rec_end']に登録する。
             # ジョブ開始時間 + Resource_List.walltime
-            (wt_h, wt_m, wt_s) = self.jobs[jid]['Resource_List.walltime'].split(':')
-            self.jobs[jid]['rec_end'] = self.jobs[jid]['rec_begin'] + datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
+            (wt_h, wt_m, wt_s) = jobs[jid]['Resource_List.walltime'].split(':')
+            jobs[jid]['rec_end'] = jobs[jid]['rec_begin'] + datetime.timedelta(hours=int(wt_h), minutes=int(wt_m), seconds=int(wt_s))
 
             # タイトル、チャンネル番号を登録する
-            (self.jobs[jid]['channel'], self.jobs[jid]['title']) = self.jobs[jid]['Job_Name'].split('.', 1)
-            self.jobs[jid]['channel'] = re.sub('^ch[Bd]', '', self.jobs[jid]['channel'])
+            (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
+            jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel'])
 
             # qstatのjob_stateをわかりやすい表記に
-            self.jobs[jid]['record_state'] = job_state[self.jobs[jid]['job_state']]
+            jobs[jid]['record_state'] = self.job_state[jobs[jid]['job_state']]
 
-            if self.jobs[jid]['job_state'] == 'R':
+            if jobs[jid]['job_state'] == 'R':
                 # 録画開始からの経過時間を登録する
-                elapse = (self.present - self.jobs[jid]['rec_begin']).seconds
-                self.jobs[jid]['record_state'] = self.jobs[jid]['record_state'] + "({0:02}:{1:02}:{2:02})@{3}".format(
-                int(elapse/60/60),int(elapse/60), elapse%60, re.sub('/.*$', '', self.jobs[jid]['exec_host'])
+                elapse = (present - jobs[jid]['rec_begin']).seconds
+                jobs[jid]['record_state'] = jobs[jid]['record_state'] + "({0:02}:{1:02}:{2:02})@{3}".format(
+                int(elapse/60/60),int(elapse/60), elapse%60, re.sub('/.*$', '', jobs[jid]['exec_host'])
                 )
 
 
-        self.job_array = [self.jobs[x] for x in sorted(self.jobs.keys())]
+        self.job_array = [jobs[x] for x in sorted(jobs.keys())]
         self.job_array = sorted(self.job_array, key=lambda j: j['rec_begin'])
         self.chech_channel_resource(self.job_array)
 
         return self.job_array
 
     def chech_channel_resource(self, job_array):
-        self.queue_info = self.get_queue_info()
+        queue_info = self.get_queue_info()
 
         for job in job_array:
             if job['job_state'] == 'C':
                 continue
-            if len(self.queue_info[job['queue']]['jobs']) < self.queue_info[job['queue']]['ch_max']:
+            if len(queue_info[job['queue']]['jobs']) < queue_info[job['queue']]['ch_max']:
                 # チャンネルの空きがある
                 # queue_info[job['queue']]['jobs']にこのジョブを登録
-                self.queue_info[job['queue']]['jobs'].append(job)
+                queue_info[job['queue']]['jobs'].append(job)
             else:
                 # ガベージコレクト
-                for old_job in self.queue_info[job['queue']]['jobs']:
+                for old_job in queue_info[job['queue']]['jobs']:
                     # queue_info[job['queue']]['jobs']に残っているジョブから録画終了しているものを削除
                     if job['rec_begin'] > old_job['rec_end']:
-                        self.queue_info[job['queue']]['jobs'].remove(old_job)
+                        queue_info[job['queue']]['jobs'].remove(old_job)
 
                 # 改めてチャンネルの空き確認
-                if len(self.queue_info[job['queue']]['jobs']) < self.queue_info[job['queue']]['ch_max']:
+                if len(queue_info[job['queue']]['jobs']) < queue_info[job['queue']]['ch_max']:
                     # チャンネルの空きがある
                     # queue_info[job['queue']]['jobs']にこのジョブを登録
-                    self.queue_info[job['queue']]['jobs'].append(job)
+                    queue_info[job['queue']]['jobs'].append(job)
                 else:
                     job['alart'] = 'NoResource'
 
     def get_queue_info(self):
-        self.nodes = {}
-        self.queue_info = {}
+        nodes = {}
+        queue_info = {}
 
         # pbsnodes -qの出力から以下の情報を取得する。
         # ノード名
@@ -136,26 +143,26 @@ class RecTorque:
                 if re.match(r'^\S+', ninfo):
                     # a node informations begin here
                     n = ninfo.rstrip()
-                    self.nodes[n] = {}
+                    nodes[n] = {}
                     continue
                 if re.match(r'^\s+(state|np|properties) = \S+', ninfo):
                     (key, value) = re.search(r'(state|np|properties) = (\S+)', ninfo).group(1, 2)
-                    self.nodes[n][key] = value
+                    nodes[n][key] = value
 
         # キューごとに、そのキューに所属するノードとチャンネル数を集計する。
-        for node in self.nodes.values():
+        for node in nodes.values():
             if re.search(r'(offline|down)', node['state']):
                 # 稼動状態にないノードは除外
                 continue
 
-            if not node['properties'] in self.queue_info:
-                self.queue_info[node['properties']] = {}
-                self.queue_info[node['properties']]['ch_max'] = 0
-                self.queue_info[node['properties']]['jobs'] = []
+            if not node['properties'] in queue_info:
+                queue_info[node['properties']] = {}
+                queue_info[node['properties']]['ch_max'] = 0
+                queue_info[node['properties']]['jobs'] = []
 
-            self.queue_info[node['properties']]['ch_max'] += int(node['np'])
+            queue_info[node['properties']]['ch_max'] += int(node['np'])
 
-        return self.queue_info
+        return queue_info
 
     def show(self):
         # 録画ジョブを一覧表示
@@ -200,22 +207,83 @@ class RecTorque:
                 print()
 
     def add(self, ch, title, date, time, wt='00:29:30'): 
+        rec_begin = self.get_rec_begin(date, time)
+
+    def analyze_time(self, time):
+        re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
+        delta_sec = None
+
+        if re.match(re_time, time):
+            t = list(map(int, time.split(':')))
+            if len(t) == 3:
+                delta_sec = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60)+t[2])
+            elif len(t) == 2:
+                delta_sec = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60))
+            else:
+                delta_sec = datetime.timedelta(seconds=t[0])
+            
+        return delta_sec
+
+
+    def get_rec_begin(self, date, time):
         re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
+        re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$|^\d{1,2}$')
+
+        rec_begin = None
+        present = datetime.datetime.now()
+
+        begin_sec = self.analyze_time(time)
+        if begin_sec == None:
+            print('invalid time: {0}'.format(time))
+            return None
+
         if re.match(re_wday, date):
-           print(date)
+            # Weekday
+            today = present.weekday()
+            offset = wdaynum[date.lower()] - today
+            if offset < 0:
+                offset += 7
+            rec_begin = datetime.datetime(present.year, present.month, present.day) + begin_sec + datetime.timedelta(days=offset)
+
+        elif re.match(re_date, date):
+            # YYYY/MM/DD or MM/DD or DD
+            d = date.split('/')
+            if len(d) == 3:
+                (year, month, day) = map(int, d)
+            elif len(d) == 2:
+                (month, day) = map(int, d)
+                year = present.year
+            else:
+                day = d[0]
+                year = predent.year
+                month = present.month
+            rec_begin = datetime.datetime(year, month, day) + begin_sec
+
+
+        if rec_begin == None:
+            print('invalid date({0})'.format(date))
+
+        print(rec_begin)
+        return rec_begin
+
+
 
 
 rec = RecTorque()
 rec.show()
-rec.add('20', 'test', 'sun', '22:30')
-rec.add('20', 'test', 'Mon', '22:30')
-rec.add('20', 'test', 'tHu', '22:30')
-rec.add('20', 'test', 'weD', '22:30')
-rec.add('20', 'test', 'ThU', '22:30')
-rec.add('20', 'test', 'fRi', '22:30')
-rec.add('20', 'test', 'SAt', '22:30')
-rec.add('20', 'test', 'hoge', '22:30')
-print(rec.re_wday)
+rec.add('20', 'test', 'sun', '22:29:50')
+rec.add('20', 'test', 'Mon', '22:29:50')
+rec.add('20', 'test', 'tUe', '22:29:50')
+rec.add('20', 'test', 'weD', '22:29:50')
+rec.add('20', 'test', 'ThU', '22:29:50')
+rec.add('20', 'test', 'fRi', '22:29:50')
+rec.add('20', 'test', 'SAt', '22:29:50')
+rec.add('20', 'test', 'hoge', '22:29:50')
+rec.add('20', 'test', '2016/3/1', '22:29:50')
+rec.add('20', 'test', '2016/03/01', '22:29:50')
+rec.add('20', 'test', '2016/12/31', '22:29:50')
+rec.add('20', 'test', '16/12/31', '22:29:50')
+rec.add('20', 'test', '2016/12/31/1', '22:29:50')
 
 # 確認(DEBUG)
 #job_array = get_torque_job_info()
