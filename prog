@@ -9,6 +9,9 @@ import time
 # torque commands
 qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
+recpt1_path = '/usr/local/bin/recpt1'
+logdir = '/home/autumn/log'
+recdir = '/home/autumn/rec'
 wormup_offset_s = 10
 dateline_offset_h = 5
 wdaynum = {
@@ -20,6 +23,10 @@ wdaynum = {
     'sat': 5,
     'sun': 6,
 }
+queuename = {
+    'satellite': 'bs',
+    'terrestrial': 'tt',
+}
 
 class RecTorque:
     def __init__(self):
@@ -27,6 +34,9 @@ class RecTorque:
         self.pbsnodes = [pbsnodes_path, '-a' ]
         self.wormup_offset_s = wormup_offset_s
         self.dateline_offset_h = dateline_offset_h
+        self.recpt1_path = recpt1_path
+        self.logdir = logdir
+        self.recdir = recdir
         self.job_state = {
             'C': "Completed",
             'E': "Exiting",
@@ -206,48 +216,42 @@ class RecTorque:
             else:
                 print()
 
-    def add(self, ch, title, date, time, wt='00:29:30'): 
-        rec_begin = self.get_rec_begin(date, time)
-
-    def analyze_time(self, time):
+    def analyze_time(self, str_time):
+        # HH:MM:SS or HH:MM or SS
         re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
-        delta_sec = None
+        time = None
 
-        if re.match(re_time, time):
-            t = list(map(int, time.split(':')))
+        # timedeltaオブジェクトに変換して返す
+        if re.match(re_time, str_time):
+            t = list(map(int, str_time.split(':')))
             if len(t) == 3:
-                delta_sec = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60)+t[2])
+                time = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60)+t[2])
             elif len(t) == 2:
-                delta_sec = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60))
-            else:
-                delta_sec = datetime.timedelta(seconds=t[0])
-            
-        return delta_sec
+                time = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60))
+            elif len(t) == 1:
+                time = datetime.timedelta(seconds=t[0])
 
+        return time
 
-    def get_rec_begin(self, date, time):
+    def analyze_date(self, str_date):
+        # "YYYY/MM/DD" or "MM/DD" or "DD" or "sun|mon|tue|wed|thu|fri|sat"
         re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
         re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$|^\d{1,2}$')
+        re_today = re.compile(r'^today$', re.I)
 
-        rec_begin = None
         present = datetime.datetime.now()
+        date = None
 
-        begin_sec = self.analyze_time(time)
-        if begin_sec == None:
-            print('invalid time: {0}'.format(time))
-            return None
-
-        if re.match(re_wday, date):
+        if re.match(re_wday, str_date):
             # Weekday
             today = present.weekday()
-            offset = wdaynum[date.lower()] - today
+            offset = wdaynum[str_date.lower()] - today
             if offset < 0:
                 offset += 7
-            rec_begin = datetime.datetime(present.year, present.month, present.day) + begin_sec + datetime.timedelta(days=offset)
-
-        elif re.match(re_date, date):
+            date = datetime.datetime(present.year, present.month, present.day) + datetime.timedelta(days=offset)
+        elif re.match(re_date, str_date):
             # YYYY/MM/DD or MM/DD or DD
-            d = date.split('/')
+            d = str_date.split('/')
             if len(d) == 3:
                 (year, month, day) = map(int, d)
             elif len(d) == 2:
@@ -257,33 +261,98 @@ class RecTorque:
                 day = d[0]
                 year = predent.year
                 month = present.month
-            rec_begin = datetime.datetime(year, month, day) + begin_sec
+            date = datetime.datetime(year, month, day)
+        elif re.match(re_today, str_date):
+            # today
+            date = datetime.datetime(present.year, present.month, present.day)
 
+        return date
 
-        if rec_begin == None:
+    def add(self, ch, title, date, time, wt='00:29:30'): 
+        re_ch = re.compile(r'^\d+$')
+        if not re.match(re_ch, ch):
+            print('invalid channel({0})'.format(ch))
+            return
+
+        if int(ch) < 100:
+            queue = queuename['terrestrial']
+            lnb = ''
+        else:
+            queue = queuename['satellite']
+            lnb = '--lnb 15'
+
+        rec_date = self.analyze_date(date)
+        if rec_date is None:
             print('invalid date({0})'.format(date))
+            return 
+
+        rec_begin_time = self.analyze_time(time)
+        if rec_begin_time is None:
+            print('invalid time({0})'.format(time))
+            return
+
+        walltime = self.analyze_time(wt)
+        if walltime is None:
+            print('invalid walltime({0})'.format(wt))
+            return
+
+
+        rec_begin = rec_date + rec_begin_time - datetime.timedelta(seconds=wormup_offset_s)
 
         print(rec_begin)
-        return rec_begin
+        jobscript = """#!/bin/sh
+#PBS -q {_queue}
+#PBS -N ch{_ch}.{_title}
+#PBS -a {_yyyy:0>4}{_mm:0>2}{_dd:0>2}{_HH:0>2}{_MM:0>2}.{_SS:0>2}
+#PBS -l walltime={_wt_H:0>2}:{_wt_M:0>2}:{_wt_S:0>2}
+#PBS -j oe
+#PBS -o {_logdir}
+#PBS -e {_logdir}
 
-
-
+umask 022
+_id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
+{_recpt1} {_lnb} --b25 --strip {_ch} - {_recdir}/{_title}.{_ch}.`date +%Y%m%d_%H%M.%S`.$_id.ts"""
+        print(jobscript.format(
+        _queue=queue,
+        _ch=ch,
+        _title=title,
+        _yyyy=rec_begin.year,
+        _mm=rec_begin.month,
+        _dd=rec_begin.day,
+        _HH=rec_begin.hour,
+        _MM=rec_begin.minute,
+        _SS=rec_begin.second,
+        _wt_H=int((walltime.seconds/60/60)+(walltime.days*24)),
+        _wt_M=int((walltime.seconds/60)%60),
+        _wt_S=int(walltime.seconds%60),
+        _logdir=self.logdir,
+        _recdir=self.recdir,
+        _recpt1=self.recpt1_path,
+        _lnb=lnb))
 
 rec = RecTorque()
 rec.show()
-rec.add('20', 'test', 'sun', '22:29:50')
-rec.add('20', 'test', 'Mon', '22:29:50')
-rec.add('20', 'test', 'tUe', '22:29:50')
-rec.add('20', 'test', 'weD', '22:29:50')
-rec.add('20', 'test', 'ThU', '22:29:50')
-rec.add('20', 'test', 'fRi', '22:29:50')
-rec.add('20', 'test', 'SAt', '22:29:50')
-rec.add('20', 'test', 'hoge', '22:29:50')
-rec.add('20', 'test', '2016/3/1', '22:29:50')
-rec.add('20', 'test', '2016/03/01', '22:29:50')
-rec.add('20', 'test', '2016/12/31', '22:29:50')
-rec.add('20', 'test', '16/12/31', '22:29:50')
-rec.add('20', 'test', '2016/12/31/1', '22:29:50')
+#rec.add('20', 'test', 'sun', '22:29:50')
+#rec.add('20', 'test', 'Mon', '22:29:50')
+#rec.add('20', 'test', 'tUe', '22:29:50')
+#rec.add('20', 'test', 'weD', '22:29:50')
+#rec.add('20', 'test', 'ThU', '22:29:50')
+#rec.add('20', 'test', 'fRi', '22:29:50')
+#rec.add('20', 'test', 'SAt', '22:29:50')
+#rec.add('20', 'test', 'hoge', '22:29:50')
+#rec.add('20', 'test', '2016/3/1', '22:29:50')
+#rec.add('20', 'test', '2016/03/01', '22:29:50')
+#rec.add('20', 'test', '2016/12/31', '22:29:50')
+#rec.add('20', 'test', '16/12/31', '22:29:50')
+#rec.add('20', 'test', '2016/12/31/1', '22:29:50')
+#rec.add('20', 'test', 'SAt', '22:29')
+#rec.add('20', 'test', 'SAt', '1770')
+#rec.add('20', 'test', 'SAt', '22:29:50:10')
+rec.add('20', 'test', 'today', '22:30')
+print()
+rec.add('211', 'test', 'today', '22:30:00')
+rec.add('103', 'test', 'today', '22:30:00', '1:120:600')
+rec.add('103', 'test', 'today', '22:30:00', '1770')
 
 # 確認(DEBUG)
 #job_array = get_torque_job_info()
