@@ -5,11 +5,13 @@ import subprocess
 import re
 import datetime
 import time
+import argparse
 
 # torque commands
 qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
-qsub_path = '/usr/local/torque/bin/qsub'
+#qsub_path = '/usr/local/torque/bin/qsub'
+qsub_path = '/bin/cat' # debug
 recpt1_path = '/usr/local/bin/recpt1'
 scriptdir = '/home/autumn/jobsh'
 logdir = '/home/autumn/log'
@@ -61,22 +63,28 @@ class RecTorque:
 
         #with open('./qstat-f.job.all', 'r') as pjob:
         #    for jinfo in pjob:
-        with subprocess.Popen(self.qstat, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
-            for jinfo in pjob.stdout:
-    
-                if re.match('Job Id:', jinfo):
-                    # a job informations begin here
-                    jid = re.search(r'^Job Id:\s*(\d+)\.', jinfo).group(1)
-                    jobs[jid] = {}
-                    jobs[jid]['JID'] = jid
-                    continue
+        try:
+            with subprocess.Popen(self.qstat, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
 
-                if re.search(' = ', jinfo):
-                    (jkey, jval) = jinfo.split(' = ')
-                    jkey = re.sub(r'\s', '', jkey)
-                    jobs[jid][jkey] = jval.rstrip()
+                # qstat -f の出力から各ジョブの情報を取得してjobsに詰める.
+                for jinfo in pjob.stdout:
+                    if re.match('Job Id:', jinfo):
+                        # a job informations begin here
+                        jid = re.search(r'^Job Id:\s*(\d+)\.', jinfo).group(1)
+                        jobs[jid] = {}
+                        jobs[jid]['JID'] = jid
+                        continue
+
+                    if re.search(' = ', jinfo):
+                        (jkey, jval) = jinfo.split(' = ')
+                        jkey = re.sub(r'\s', '', jkey)
+                        jobs[jid][jkey] = jval.rstrip()
             
-        # ジョブごとに情報を追加
+        except (OSError, ValueError) as err:
+            print('cannot get job information: {0}'.format(err))
+            return None
+
+        # 不足する情報を追加
         for jid in jobs.keys():
             if 'Execution_Time' in jobs[jid]:
                 # 実行開始前(State: W)のジョブ。
@@ -152,16 +160,20 @@ class RecTorque:
         # properties: そのノードの所属するキュー名
         # np:         チューナー数
         # state:      ノードの状態
-        with subprocess.Popen(self.pbsnodes, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pnodes:
-            for ninfo in pnodes.stdout:
-                if re.match(r'^\S+', ninfo):
-                    # a node informations begin here
-                    n = ninfo.rstrip()
-                    nodes[n] = {}
-                    continue
-                if re.match(r'^\s+(state|np|properties) = \S+', ninfo):
-                    (key, value) = re.search(r'(state|np|properties) = (\S+)', ninfo).group(1, 2)
-                    nodes[n][key] = value
+        try:
+            with subprocess.Popen(self.pbsnodes, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pnodes:
+                for ninfo in pnodes.stdout:
+                    if re.match(r'^\S+', ninfo):
+                        # a node informations begin here
+                        n = ninfo.rstrip()
+                        nodes[n] = {}
+                        continue
+                    if re.match(r'^\s+(state|np|properties) = \S+', ninfo):
+                        (key, value) = re.search(r'(state|np|properties) = (\S+)', ninfo).group(1, 2)
+                        nodes[n][key] = value
+        except (OSError, ValueError) as err:
+            print('cannot get node information: {0}'.format(err))
+            return None
 
         # キューごとに、そのキューに所属するノードとチャンネル数を集計する。
         for node in nodes.values():
@@ -178,10 +190,10 @@ class RecTorque:
 
         return queue_info
 
-    def show(self, str_date='all'):
+    def show(self, str_date=None):
         # 録画ジョブを一覧表示
-
-        if not str_date == 'all':
+        date = None
+        if str_date is not None:
             # 指定日時を取得
             date = self.analyze_date(str_date)
             if date is None:
@@ -189,13 +201,17 @@ class RecTorque:
                 return
             date += datetime.timedelta(seconds=(dateline_offset_h*60*60))
 
+        jobinfo = self.set_torque_job_info()
+        if jobinfo is None:
+            return
+
         print('ID    Ch  Title                    Start           walltime user     queue')
         prev_wday = ''
-        for j in self.set_torque_job_info():
+        for j in jobinfo:
             # 表示用に録画開始時刻マージン分を加算したdatetimeオブジェクトを作成
-            begin = j['rec_begin'] + datetime.timedelta(seconds=wormup_offset_s)
+            begin = j['rec_begin'] + datetime.timedelta(seconds=self.wormup_offset_s)
 
-            if not str_date == 'all':
+            if date is not None:
                 # 指定日時以外はスキップ
                 if begin < date or begin > (date + datetime.timedelta(days=1)):
                     continue
@@ -232,9 +248,12 @@ class RecTorque:
             else:
                 print()
 
+        return
+
     def analyze_time(self, str_time):
-        # HH:MM:SS or HH:MM or SS
+        # HH:MM:SS or HH:MM or SS or now
         re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
+        re_now = re.compile(r'now', re.I)
         time = None
 
         # timedeltaオブジェクトに変換して返す
@@ -246,6 +265,10 @@ class RecTorque:
                 time = datetime.timedelta(seconds=(t[0]*60*60)+(t[1]*60))
             elif len(t) == 1:
                 time = datetime.timedelta(seconds=t[0])
+        elif re.match(re_now, str_time):
+            present = datetime.datetime.now()
+            # 後で除算される分のwormup_offset_sもあらかじめ足しておく
+            time = datetime.timedelta(seconds=(present.hour*60*60)+(present.minute*60)+present.second + self.wormup_offset_s, microseconds=present.microsecond)
 
         return time
 
@@ -275,8 +298,8 @@ class RecTorque:
                 (month, day) = map(int, d)
                 year = present.year
             else:
-                day = d[0]
-                year = predent.year
+                day = int(d[0])
+                year = present.year
                 month = present.month
             date = datetime.datetime(year, month, day)
         elif re.match(re_today, str_date):
@@ -289,16 +312,20 @@ class RecTorque:
 
         return date
 
-    def add(self, ch, title, date, time, wt='00:29:30'): 
+    def add(self, ch, title, date, time, wt='00:29:00'): 
+        present = datetime.datetime.now()
+
         re_ch = re.compile(r'^\d+$')
         if not re.match(re_ch, ch):
             print('invalid channel({0})'.format(ch))
             return
 
         if int(ch) < 100:
+            # for terrestrial television
             queue = queuename['terrestrial']
             lnb = ''
         else:
+            # for broadcasting satellite
             queue = queuename['satellite']
             lnb = '--lnb 15'
 
@@ -317,7 +344,15 @@ class RecTorque:
             print('invalid walltime({0})'.format(wt))
             return
 
-        rec_begin = rec_date + rec_begin_time - datetime.timedelta(seconds=wormup_offset_s)
+        rec_begin = rec_date + rec_begin_time - datetime.timedelta(seconds=self.wormup_offset_s)
+
+        if rec_begin < present:
+            # 指定された開始時刻が過ぎている
+            print('start in the past?')
+            #print('begin: %r,  now: %r' % (rec_begin, present))
+            return
+
+        # qsub の -a オプションに渡すジョブ開始時刻を生成
         at = '{0:0>4}{1:0>2}{2:0>2}{3:0>2}{4:0>2}.{5:0>2}'.format(
         rec_begin.year,
         rec_begin.month,
@@ -326,6 +361,7 @@ class RecTorque:
         rec_begin.minute,
         rec_begin.second,)
 
+        # ジョブスクリプトを生成
         jobscript = """#!/bin/sh
 #PBS -q {_queue}
 #PBS -N ch{_ch}.{_title}
@@ -340,7 +376,6 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
 {_recpt1} {_lnb} --b25 --strip {_ch} - {_recdir}/{_title}.{_ch}.`date +%Y%m%d_%H%M.%S`.$_id.ts
 """
 
-        # print(jobscript.format(
         filename = scriptdir + '/' + title + '.' + at + '.sh'
         try:
             with open(filename, 'w') as f:
@@ -364,10 +399,50 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
             subprocess.Popen((self.qsub, filename))
         except (OSError, ValueError) as err:
             print('cannot submit job: {0}'.format(err))
+            return
+
+        return
 
 
+### 引数解析
+parser = argparse.ArgumentParser(description='record TV program')
+subparser = parser.add_subparsers(help='sub-command help', dest='name')
+
+### add: 録画ジョブ投入
+parser_add = subparser.add_parser('add', help='add record job')
+#channel, title, day, time, walltime
+parser_add.add_argument('channel', help='TV channel (mandatory)')
+parser_add.add_argument('title', help='program title (mandatory)')
+parser_add.add_argument('day', help='day when record job run (mandatory)')
+parser_add.add_argument('time', help='time when record job run (mandatory)')
+parser_add.add_argument('walltime', nargs='?', default='00:29:00', help='recording time (optional)')
+
+### recnow
+parser_recnow = subparser.add_parser('recnow', help='record start at now')
+parser_recnow.add_argument('channel', help='TV channel (mandatory)')
+parser_recnow.add_argument('title', help='program title (mandatory)')
+parser_recnow.add_argument('walltime', nargs='?', default='00:29:00', help='recording time (optional)')
+
+### show: 録画ジョブ表示
+parser_show = subparser.add_parser('show', help='show rocord jobs')
+parser_show.add_argument('-d', help='day when record job run')
+
+args = parser.parse_args()
+print(args)
 
 rec = RecTorque()
+if args.name == 'show':
+    rec.show(args.d)
+
+elif args.name == 'add':
+    rec.add(args.channel, args.title, args.day, args.time, args.walltime)
+
+elif args.name == 'recnow':
+    rec.add(args.channel, args.title, 'today', 'now', args.walltime)
+
+elif args.name is None:
+    rec.show()
+
 #rec.show()
 #rec.show('today')
 #rec.show('4/3')
