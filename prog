@@ -410,7 +410,6 @@ subparser = parser.add_subparsers(help='sub-command help', dest='name')
 
 ### add: 録画ジョブ投入
 parser_add = subparser.add_parser('add', help='add record job')
-#channel, title, day, time, walltime
 parser_add.add_argument('channel', help='TV channel (mandatory)')
 parser_add.add_argument('title', help='program title (mandatory)')
 parser_add.add_argument('day', help='day when record job run (mandatory)')
@@ -442,31 +441,3 @@ elif args.name == 'recnow':
 
 elif args.name is None:
     rec.show()
-
-#rec.show()
-#rec.show('today')
-#rec.show('4/3')
-#rec.show('+1d')
-#rec.show('all')
-
-#rec.add('20', 'test', 'today', '28:00')
-#print()
-#rec.add('211', 'test', 'today', '22:30:00')
-#print()
-#rec.add('103', 'test', 'today', '22:30:00', '1:120:600')
-#print()
-#rec.add('103', 'test', 'today', '22:30:00', '1770')
-
-# 確認(DEBUG)
-#job_array = get_torque_job_info()
-#for j in job_array:
-#    for jkey in sorted(j.keys()):
-#        print(jkey, ":", j[jkey])
-#
-#    print()
-
-#queue_info = get_queue_info()
-#for queue in queue_info.keys():
-#    print(queue)
-#    for v in queue_info[queue]:
-#        print('    {0}  {1}'.format(v, queue_info[queue][v]))
