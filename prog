@@ -10,8 +10,8 @@ import argparse
 # torque commands
 qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
-#qsub_path = '/usr/local/torque/bin/qsub'
-qsub_path = '/bin/cat' # debug
+qsub_path = '/usr/local/torque/bin/qsub'
+#qsub_path = '/bin/cat' # debug
 recpt1_path = '/usr/local/bin/recpt1'
 scriptdir = '/home/autumn/jobsh'
 logdir = '/home/autumn/log'
@@ -107,7 +107,7 @@ class RecTorque:
 
             # タイトル、チャンネル番号を登録する
             (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
-            jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel'])
+            jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel']) # 旧スクリプトとの互換性処理
 
             # qstatのjob_stateをわかりやすい表記に
             jobs[jid]['record_state'] = self.job_state[jobs[jid]['job_state']]
@@ -364,7 +364,7 @@ class RecTorque:
         # ジョブスクリプトを生成
         jobscript = """#!/bin/sh
 #PBS -q {_queue}
-#PBS -N ch{_ch}.{_title}
+#PBS -N {_ch}.{_title}
 #PBS -a {_at}
 #PBS -l walltime={_wt_H:0>2}:{_wt_M:0>2}:{_wt_S:0>2}
 #PBS -j oe
@@ -406,8 +406,6 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
 
 ### 引数解析
 parser = argparse.ArgumentParser(description='record TV program')
-#parser.add_argument('-d', metavar='{today, +Nd, [[YYYY/]MM/]DD}', help='day when record-job run')
-
 subparser = parser.add_subparsers(help='sub-command help', dest='name')
 
 ### add: 録画ジョブ投入
@@ -440,5 +438,3 @@ elif args.name == 'add':
 elif args.name == 'recnow':
     rec.add(args.channel, args.title, 'today', 'now', args.walltime)
 
-#elif args.name is None:
-#    rec.show(args.d)
