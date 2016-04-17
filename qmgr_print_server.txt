@@ -1,0 +1,28 @@
+#
+# Create queues and set their attributes.
+#
+#
+# Create and define queue bs
+#
+create queue bs
+set queue bs queue_type = Execution
+set queue bs resources_default.neednodes = bs
+set queue bs resources_default.nodes = 1
+set queue bs resources_default.walltime = 01:00:00
+set queue bs enabled = True
+set queue bs started = True
+#
+# Create and define queue tt
+#
+create queue tt
+set queue tt queue_type = Execution
+set queue tt resources_default.neednodes = tt
+set queue tt resources_default.nodes = 1
+set queue tt resources_default.walltime = 01:00:00
+set queue tt enabled = True
+set queue tt started = True
+#
+# Set server attributes.
+#
+set server default_queue = tt
+set server query_other_jobs = True

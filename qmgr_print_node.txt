@@ -1,0 +1,12 @@
+#
+# Create and define node hatsuyuki-t
+#
+create node hatsuyuki-t
+set node hatsuyuki-t np = 4
+set node hatsuyuki-t properties = tt
+#
+# Create and define node hatsuyuki-s
+#
+create node hatsuyuki-s
+set node hatsuyuki-s np = 4
+set node hatsuyuki-s properties = bs
