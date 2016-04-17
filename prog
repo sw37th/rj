@@ -66,19 +66,21 @@ class RecTorque:
         try:
             with subprocess.Popen(self.qstat, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pjob:
 
+                re_jobid = re.compile(r'^Job Id:\s*(\d+)\.')
+                re_equal = re.compile(r'^\s+([\w.]+) = (.+$)')
                 # qstat -f の出力から各ジョブの情報を取得してjobsに詰める.
                 for jinfo in pjob.stdout:
-                    if re.match('Job Id:', jinfo):
+                    if re.match(re_jobid, jinfo):
                         # a job informations begin here
-                        jid = re.search(r'^Job Id:\s*(\d+)\.', jinfo).group(1)
+                        jid = re.match(re_jobid, jinfo).group(1)
                         jobs[jid] = {}
                         jobs[jid]['JID'] = jid
                         continue
 
-                    if re.search(' = ', jinfo):
-                        (jkey, jval) = jinfo.split(' = ')
-                        jkey = re.sub(r'\s', '', jkey)
-                        jobs[jid][jkey] = jval.rstrip()
+                    if re.match(re_equal, jinfo):
+                        (jkey, jval) = re.match(re_equal, jinfo).group(1,2)
+                        #print('{} {}'.format(jkey,jval))
+                        jobs[jid][jkey] = jval
             
         except (OSError, ValueError) as err:
             print('cannot get job information: {0}'.format(err))
@@ -199,7 +201,7 @@ class RecTorque:
             if date is None:
                 print('invalid date({0})'.format(date))
                 return
-            date += datetime.timedelta(seconds=(dateline_offset_h*60*60))
+            date += datetime.timedelta(seconds=(self.dateline_offset_h*60*60))
 
         jobinfo = self.set_torque_job_info()
         if jobinfo is None:
@@ -217,10 +219,10 @@ class RecTorque:
                     continue
 
             # 24時以降、dateline_offset_hまでの録画ジョブを当日扱いに
-            wday = begin.strftime("%a") if begin.hour >= dateline_offset_h else (begin - datetime.timedelta(days=1)).strftime("%a")
-            mon  = int(begin.strftime("%m")) if begin.hour >= dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%m"))
-            day  = int(begin.strftime("%d")) if begin.hour >= dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%d"))
-            hour = int(begin.strftime("%H")) if begin.hour >= dateline_offset_h else int(begin.strftime("%H")) + 24
+            wday = begin.strftime("%a") if begin.hour >= self.dateline_offset_h else (begin - datetime.timedelta(days=1)).strftime("%a")
+            mon  = int(begin.strftime("%m")) if begin.hour >= self.dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%m"))
+            day  = int(begin.strftime("%d")) if begin.hour >= self.dateline_offset_h else int((begin - datetime.timedelta(days=1)).strftime("%d"))
+            hour = int(begin.strftime("%H")) if begin.hour >= self.dateline_offset_h else int(begin.strftime("%H")) + 24
 
             if wday != prev_wday:
                 print('----- --- ------------------------ --------------- -------- -------- -----')
@@ -304,7 +306,7 @@ class RecTorque:
             date = datetime.datetime(year, month, day)
         elif re.match(re_today, str_date):
             # today
-            date = datetime.datetime(present.year, present.month, present.day)
+            date = datetime.datetime(present.year, present.month, present.day) 
         elif re.match(re_plus, str_date):
             # +n day
             n = re.match(re_plus, str_date).group(1)
