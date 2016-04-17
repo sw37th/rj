@@ -223,18 +223,18 @@ class RecTorque:
             begin = j['rec_begin'] + datetime.timedelta(seconds=self.wormup_offset_s)
 
             if date is not None:
-                # 指定日時以外はスキップ
+                # 日付指定がある場合
+                # 指定日時以外はスキップする
                 if begin < date or begin > (date + datetime.timedelta(days=1)):
                     continue
 
-            # 24時以降、dateline_offset_hまでの録画ジョブを当日扱いに
             if begin.hour >= self.dateline_offset_h:
                 wday = begin.strftime("%a")
                 mon  = int(begin.strftime("%m"))
                 day  = int(begin.strftime("%d"))
                 hour = int(begin.strftime("%H"))
             else:
-                # 24時以降、dateline_offset_hまでの録画ジョブ
+                # 24時以降、dateline_offset_hまでの録画ジョブを当日扱いに
                 wday = (begin - datetime.timedelta(days=1)).strftime("%a")
                 mon = int((begin - datetime.timedelta(days=1)).strftime("%m"))
                 day = int((begin - datetime.timedelta(days=1)).strftime("%d"))
