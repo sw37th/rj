@@ -18,6 +18,7 @@ logdir = '/home/autumn/log'
 recdir = '/home/autumn/rec'
 wormup_offset_s = 10
 dateline_offset_h = 5
+comm_timeout = 10
 queuename = {
     'satellite': 'bs',
     'terrestrial': 'tt',
@@ -30,6 +31,7 @@ class RecTorque:
         self.qsub = qsub_path
         self.wormup_offset_s = wormup_offset_s
         self.dateline_offset_h = dateline_offset_h
+        self.comm_timeout = comm_timeout
         self.recpt1_path = recpt1_path
         self.scriptdir = scriptdir
         self.logdir = logdir
@@ -433,8 +435,9 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
             return
 
         try:
-            subprocess.Popen((self.qsub, filename))
-        except (OSError, ValueError) as err:
+            with subprocess.Popen((self.qsub, filename), universal_newlines=True) as submit:
+                #submit.wait(timeout=self.comm_timeout)
+        except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot submit job: {0}'.format(err))
             return
 
