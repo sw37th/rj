@@ -436,7 +436,7 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
 
         try:
             with subprocess.Popen((self.qsub, filename), universal_newlines=True) as submit:
-                #submit.wait(timeout=self.comm_timeout)
+                submit.wait(timeout=self.comm_timeout)
         except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot submit job: {0}'.format(err))
             return
