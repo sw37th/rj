@@ -107,7 +107,6 @@ class RecTorque:
 
             # タイトル、チャンネル番号を登録する
             (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
-            jobs[jid]['channel'] = re.sub('^ch[Bd]', '', jobs[jid]['channel']) # 旧スクリプトとの互換性処理
 
             # qstatのjob_stateをわかりやすい表記に
             jobs[jid]['record_state'] = self.job_state[jobs[jid]['job_state']]
