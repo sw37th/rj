@@ -453,13 +453,13 @@ parser_add.add_argument('channel', metavar='num', help='TV channel')
 parser_add.add_argument('title', metavar='titlename', help='program title')
 parser_add.add_argument('day', metavar="YYYY/MM/DD", help='day when record-job run')
 parser_add.add_argument('time', metavar='HH:MM', help='time when record-job run')
-parser_add.add_argument('walltime', nargs='?', default='00:29:00', metavar='HH:MM:SS or seconds', help='recording time [optional]')
+parser_add.add_argument('walltime', nargs='?', default='00:29:30', metavar='HH:MM:SS or seconds', help='recording time [optional]')
 
 ### recnow
 parser_recnow = subparser.add_parser('recnow', help='record start at now')
 parser_recnow.add_argument('channel', help='number (TV channel) [mandatory]')
 parser_recnow.add_argument('title', help='strings (program title) [mandatory]')
-parser_recnow.add_argument('walltime', nargs='?', default='00:29:00', help=':MM:SS or HH:MM or seconds (recording time) [optional]')
+parser_recnow.add_argument('walltime', nargs='?', default='00:29:30', help=':MM:SS or HH:MM or seconds (recording time) [optional]')
 
 ### show: 録画ジョブ表示
 parser_show = subparser.add_parser('show', help='show rocord jobs')
