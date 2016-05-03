@@ -47,9 +47,13 @@ class RecTorque:
             'S': "Suspend",
         }
 
-    def set_torque_job_info(self):
+    def get_torque_job_info(self, target_jid=None):
         jobs = {}
         present = datetime.datetime.now()
+
+        if target_jid is not None:
+            # FIXME 数値チェック
+            self.qstat.append(target_jid)
 
         # qstat -f -1でジョブ情報を取得し、２次元dictに詰める
         # jobs['jobid'][{"key": value, "key": value, ...}]
@@ -202,7 +206,7 @@ class RecTorque:
 
         return queue_info
 
-    def show(self, str_date=None):
+    def show(self, str_date=None, jid=None):
         # 録画ジョブを一覧表示
         date = None
         if str_date is not None:
@@ -213,7 +217,7 @@ class RecTorque:
                 return
             date += datetime.timedelta(seconds=(self.dateline_offset_h*60*60))
 
-        jobinfo = self.set_torque_job_info()
+        jobinfo = self.get_torque_job_info()
         if jobinfo is None:
             return
 
@@ -469,7 +473,7 @@ args = parser.parse_args()
 
 rec = RecTorque()
 if args.name == 'show':
-    rec.show(args.day)
+    rec.show(str_date=args.day)
 
 elif args.name == 'add':
     rec.add(args.channel, args.title, args.day, args.time, args.walltime)
