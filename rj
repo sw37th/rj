@@ -11,6 +11,7 @@ import argparse
 qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
 qsub_path = '/usr/local/torque/bin/qsub'
+qalter_path = '/usr/local/torque/bin/qalter'
 #qsub_path = '/bin/cat' # debug
 recpt1_path = '/usr/local/bin/recpt1'
 scriptdir = '/home/autumn/jobsh'
@@ -29,6 +30,7 @@ class RecTorque:
         self.qstat = [qstat_path, '-f', '-1' ]
         self.pbsnodes = [pbsnodes_path, '-a' ]
         self.qsub = qsub_path
+        self.qalter = qalter_path
         self.wormup_offset_s = wormup_offset_s
         self.dateline_offset_h = dateline_offset_h
         self.comm_timeout = comm_timeout
@@ -206,6 +208,17 @@ class RecTorque:
 
         return queue_info
 
+    def mod_begintime(self, jid, begin):
+        # 録画ジョブの開始時間を変更する。
+        # HH:MM:SS or +HH:MM:SS
+        jobinfo = self.get_torque_job_info(jid)
+        if jobinfo is None:
+            print('JID: {} not found'.format(jid))
+            return
+
+        newtime = analyze_time(begin)
+        #jobinfo[0][rec_begin]
+
     def show(self, str_date=None, jid=None):
         # 録画ジョブを一覧表示
         date = None
@@ -274,12 +287,13 @@ class RecTorque:
         return
 
     def analyze_time(self, str_time):
-        # HH:MM:SS or HH:MM or SS or now
+        # 'HH:MM:SS' or 'HH:MM' or 'now' or 秒数を引数として受け取り、
+        # 00:00:00からの差分としてtimedeltaオブジェクトに格納して返す
+
         re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
         re_now = re.compile(r'now', re.I)
         time = None
 
-        # timedeltaオブジェクトに変換して返す
         if re.match(re_time, str_time):
             t = list(map(int, str_time.split(':')))
             if len(t) == 3:
