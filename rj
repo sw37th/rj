@@ -30,7 +30,7 @@ class RecTorque:
         self.qstat = [qstat_path, '-f', '-1' ]
         self.pbsnodes = [pbsnodes_path, '-a' ]
         self.qsub = qsub_path
-        self.qalter = qalter_path
+        self.qalter = [qalter_path, '-a' ]
         self.wormup_offset_s = wormup_offset_s
         self.dateline_offset_h = dateline_offset_h
         self.comm_timeout = comm_timeout
@@ -54,7 +54,9 @@ class RecTorque:
         present = datetime.datetime.now()
 
         if target_jid is not None:
-            # FIXME 数値チェック
+            if not target_jid.isdigit():
+                return None
+
             self.qstat.append(target_jid)
 
         # qstat -f -1でジョブ情報を取得し、２次元dictに詰める
@@ -208,21 +210,35 @@ class RecTorque:
 
         return queue_info
 
-    def mod_begintime(self, jid, begin):
+    def mod_begintime(self, jid, delta):
         # 録画ジョブの開始時間を変更する。
-        # HH:MM:SS or +HH:MM:SS or -HH:MM:SS
+        # +HH:MM:SS or -HH:MM:SS
         jobinfo = self.get_torque_job_info(jid)
         if jobinfo is None:
             print('JID: {} not found'.format(jid))
             return
 
-        re_delta = re.compile(r'^[+-]([\w:]+)')
-        if re.match(re_delta, begin):
-            newtime = re.match(re_delta, begin).group(1)
+        re_delta = re.compile(r'^([+-])([\w:]+)')
+        if re.match(re_delta, delta):
+            (delta_sign, delta_time) = re.match(re_delta, delta).group(1, 2)
 
-        else:
-            newtime = analyze_time(begin)
-        #jobinfo[0][rec_begin]
+            if delta_sign == '+':
+                jobinfo[0]['rec_begin'] += self.analyze_time(delta_time)
+            else:
+                jobinfo[0]['rec_begin'] -= self.analyze_time(delta_time)
+
+        at = '{_year:>4}{_mon:0>2}{_day:0>2}{_hour:0>2}{_min:0>2}.{_sec:0>2}'.format(
+        _year=jobinfo[0]['rec_begin'].year,
+        _mon=jobinfo[0]['rec_begin'].month,
+        _day=jobinfo[0]['rec_begin'].day,
+        _hour=jobinfo[0]['rec_begin'].hour,
+        _min=jobinfo[0]['rec_begin'].minute,
+        _sec=jobinfo[0]['rec_begin'].second)
+        self.qalter.extend([at, jid])
+        print(self.qalter)
+
+        return
+
 
     def show(self, str_date=None, jid=None):
         # 録画ジョブを一覧表示
@@ -490,15 +506,27 @@ parser_recnow.add_argument('walltime', nargs='?', default='00:29:30', help=':MM:
 parser_show = subparser.add_parser('show', help='show rocord jobs')
 parser_show.add_argument('day', nargs='?', metavar='YYYY/MM/DD or MM/DD or +Nd or today', help='day when record-job run')
 
-args = parser.parse_args()
+### mod: 録画開始時間変更
+#parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job', prefix_chars='+-')
+parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job', prefix_chars='_')
+#parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job')
+parser_mod.add_argument('jid', metavar='JobID', help='Job ID which is change the start time')
+#parser_mod.add_argument('time', metavar='[+-]HH:MM:SS', help='delta time from current start time')
+
+#args = parser.parse_args()
+args = parser.parse_known_args()
+print(args)
 
 rec = RecTorque()
-if args.name == 'show':
-    rec.show(str_date=args.day)
+if args[0].name == 'show':
+    rec.show(str_date=args[0].day)
 
-elif args.name == 'add':
-    rec.add(args.channel, args.title, args.day, args.time, args.walltime)
+elif args[0].name == 'add':
+    rec.add(args[0].channel, args[0].title, args[0].day, args[0].time, args[0].walltime)
 
-elif args.name == 'recnow':
-    rec.add(args.channel, args.title, 'today', 'now', args.walltime)
+elif args[0].name == 'recnow':
+    rec.add(args[0].channel, args[0].title, 'today', 'now', args[0].walltime)
+
+elif args[0].name == 'mod':
+    rec.mod_begintime(jid=args[0].jid, delta=args[1][0])
 
