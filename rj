@@ -11,8 +11,7 @@ import argparse
 qstat_path = '/usr/local/torque/bin/qstat'
 pbsnodes_path = '/usr/local/torque/bin/pbsnodes'
 qsub_path = '/usr/local/torque/bin/qsub'
-#qalter_path = '/usr/local/torque/bin/qalter'
-qalter_path = '/bin/echo' # debug
+qalter_path = '/usr/local/torque/bin/qalter'
 recpt1_path = '/usr/local/bin/recpt1'
 scriptdir = '/home/autumn/jobsh'
 logdir = '/home/autumn/log'
@@ -235,7 +234,14 @@ class RecTorque:
         _min=jobinfo[0]['rec_begin'].minute,
         _sec=jobinfo[0]['rec_begin'].second)
         self.qalter.extend([at, jid])
+
         print(self.qalter)
+        try:
+            with subprocess.Popen(self.qalter, universal_newlines=True) as modify:
+                modify.wait(timeout=self.comm_timeout)
+        except (OSError, ValueError, TimeoutExpired) as err:
+            print('cannot modify job: {0}'.format(err))
+            return
 
         return
 
@@ -506,12 +512,9 @@ parser_recnow.add_argument('walltime', nargs='?', default='00:29:30', help=':MM:
 parser_show = subparser.add_parser('show', help='show rocord jobs')
 parser_show.add_argument('day', nargs='?', metavar='YYYY/MM/DD or MM/DD or +Nd or today', help='day when record-job run')
 
-### mod: 録画開始時間変更
-#parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job', prefix_chars='+-')
-parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job', prefix_chars='_')
-#parser_mod = subparser.add_parser('mod', help='modify start time of a queueing job')
-parser_mod.add_argument('jid', metavar='JobID', help='Job ID which is change the start time')
-#parser_mod.add_argument('time', metavar='[+-]HH:MM:SS', help='delta time from current start time')
+### modbegin: 録画開始時間変更
+parser_mod = subparser.add_parser('modbegin', help='modify begin time of a job')
+parser_mod.add_argument('jid', metavar='JobID', help='Job ID which is change the begin time')
 
 #args = parser.parse_args()
 args = parser.parse_known_args()
@@ -527,6 +530,6 @@ elif args[0].name == 'add':
 elif args[0].name == 'recnow':
     rec.add(args[0].channel, args[0].title, 'today', 'now', args[0].walltime)
 
-elif args[0].name == 'mod':
+elif args[0].name == 'modbegin':
     rec.mod_begintime(jid=args[0].jid, delta=args[1][0])
 
