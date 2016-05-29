@@ -505,7 +505,6 @@ parser_add.add_argument('walltime', nargs='?', default='00:29:30', metavar='HH:M
 ### recnow
 parser_recnow = subparser.add_parser('recnow', help='record start at now')
 parser_recnow.add_argument('channel', help='number (TV channel) [mandatory]')
-parser_recnow.add_argument('title', help='strings (program title) [mandatory]')
 parser_recnow.add_argument('walltime', nargs='?', default='00:29:30', help=':MM:SS or HH:MM or seconds (recording time) [optional]')
 
 ### show: 録画ジョブ表示
@@ -528,7 +527,7 @@ elif args[0].name == 'add':
     rec.add(args[0].channel, args[0].title, args[0].day, args[0].time, args[0].walltime)
 
 elif args[0].name == 'recnow':
-    rec.add(args[0].channel, args[0].title, 'today', 'now', args[0].walltime)
+    rec.add(args[0].channel, args[0].name, 'today', 'now', args[0].walltime)
 
 elif args[0].name == 'modbegin':
     rec.mod_begintime(jid=args[0].jid, delta=args[1][0])
