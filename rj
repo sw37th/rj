@@ -517,7 +517,6 @@ parser_mod.add_argument('jid', metavar='JobID', help='Job ID which is change the
 
 #args = parser.parse_args()
 args = parser.parse_known_args()
-print(args)
 
 rec = RecTorque()
 if args[0].name == 'show':
