@@ -14,7 +14,7 @@ channel:
   27: 'NHK-G'
   101: 'NHK-BS1'
   103: 'NHK-BSP'
-  104: 'BS-NTV'
+  141: 'BS-NTV'
   151: 'BS-asahi'
   161: 'BS-TBS'
   171: 'BS-japan'
