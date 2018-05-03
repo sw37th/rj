@@ -49,11 +49,11 @@ class RecordJobTorque:
             'S': "Suspend",
         }
 
-    def get_torque_job_info(self, target_jid=None):
+    def get_job_info(self, target_jid=None):
         jobs = {}
         present = datetime.datetime.now()
 
-        if target_jid is not None:
+        if target_jid:
             if not target_jid.isdigit():
                 return None
 
@@ -213,10 +213,13 @@ class RecordJobTorque:
     def mod_begintime(self, jid, delta):
         # 録画ジョブの開始時間を変更する。
         # +HH:MM:SS or -HH:MM:SS
-        jobinfo = self.get_torque_job_info(jid)
+        jobinfo = self.get_job_info(jid)
         if jobinfo is None:
             print('JID: {} not found'.format(jid))
             return
+
+        # 変更前のジョブ情報を表示
+        self._print_jobinfo(jobinfo)
 
         re_delta = re.compile(r'^([+-])([\w:]+)')
         if re.match(re_delta, delta):
@@ -227,6 +230,7 @@ class RecordJobTorque:
             else:
                 jobinfo[0]['rec_begin'] -= self.analyze_time(delta_time)
 
+        # make qalter argument
         at = '{_year:>4}{_mon:0>2}{_day:0>2}{_hour:0>2}{_min:0>2}.{_sec:0>2}'.format(
         _year=jobinfo[0]['rec_begin'].year,
         _mon=jobinfo[0]['rec_begin'].month,
@@ -236,13 +240,17 @@ class RecordJobTorque:
         _sec=jobinfo[0]['rec_begin'].second)
         self.qalter.extend([at, jid])
 
-        print(self.qalter)
+        # ジョブ開始時間を変更
         try:
             with subprocess.Popen(self.qalter, universal_newlines=True) as modify:
                 modify.wait(timeout=self.comm_timeout)
         except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot modify job: {0}'.format(err))
             return
+
+        # 変更後のジョブ情報を表示
+        jobinfo = self.get_job_info(jid)
+        self._print_jobinfo(jobinfo, "(Modified to)")
 
         return
 
@@ -256,35 +264,46 @@ class RecordJobTorque:
 
         return chinfo
 
-    def show(self, str_date=None, jid=None):
+    def show(self, str_date=None, jid=None, header=None):
         # 録画ジョブを一覧表示
         date = None
-        if str_date is not None:
+        if str_date:
             # 指定日時を取得
             date = self.analyze_date(str_date)
-            if date is None:
+            if not date:
                 print('invalid date({0})'.format(date))
                 return
             date += datetime.timedelta(seconds=(self.dateline_offset_h*60*60))
 
-        jobinfo = self.get_torque_job_info()
-        if jobinfo is None:
+        if jid:
+            jobinfo = self.get_job_info(jid)
+        else:
+            jobinfo = self.get_job_info()
+
+        if not jobinfo:
             return
 
+        if date:
+            nextday = date + datetime.timedelta(days=1)
+            jobinfo = [
+                i for i in jobinfo 
+                    if i['rec_begin'] >= date and i['rec_begin'] < nextday]
+
+        self._print_jobinfo(jobinfo, header)
+
+    def _print_jobinfo(self, jobinfo, header=None):
         # チャンネル番号と局名の対応表を取得
         chinfo = self.get_channel_info()
 
-        print('ID    Ch             Title                    Start           walltime user     queue')
+        if header:
+            print(header)
+        else:
+            print('ID    Ch             Title                    Start           walltime user     queue')
+
         prev_wday = ''
         for j in jobinfo:
             # 表示用に録画開始時刻マージン分を加算したdatetimeオブジェクトを作成
             begin = j['rec_begin'] + datetime.timedelta(seconds=self.wormup_offset_s)
-
-            if date is not None:
-                # 日付指定がある場合
-                # 指定日時以外はスキップする
-                if begin < date or begin > (date + datetime.timedelta(days=1)):
-                    continue
 
             if begin.hour >= self.dateline_offset_h:
                 wday = begin.strftime("%a")
@@ -502,8 +521,20 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
             return
 
         try:
-            with subprocess.Popen((self.qsub, filename), universal_newlines=True) as submit:
+            with subprocess.Popen(
+                (self.qsub, filename),
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            ) as submit:
+                # waiting for complete of job submit
                 submit.wait(timeout=self.comm_timeout)
+
+                # show submitted job information
+                stdout_data, stderr_data = submit.communicate()
+                jid = re.match(r'^(\d+)\.', stdout_data).group(1)
+                self.show(jid=jid)
+
         except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot submit job: {0}'.format(err))
             return
