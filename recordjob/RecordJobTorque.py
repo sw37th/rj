@@ -55,7 +55,7 @@ class RecordJobTorque:
 
         if target_jid:
             if not target_jid.isdigit():
-                return None
+                return []
 
             self.qstat.append(target_jid)
 
@@ -85,7 +85,7 @@ class RecordJobTorque:
 
         except (OSError, ValueError) as err:
             print('cannot get job information: {0}'.format(err))
-            return None
+            return []
 
         # 不足する情報を追加
         for jid in jobs.keys():
@@ -131,11 +131,11 @@ class RecordJobTorque:
                         elapse%60,
                         re.sub('/.*$', '', jobs[jid]['exec_host'])))
 
-        self.job_array = [jobs[x] for x in sorted(jobs.keys())]
-        self.job_array = sorted(self.job_array, key=lambda j: j['rec_begin'])
-        self.chech_channel_resource(self.job_array)
+        job_array = [jobs[x] for x in sorted(jobs.keys())]
+        job_array = sorted(job_array, key=lambda j: j['rec_begin'])
+        self.chech_channel_resource(job_array)
 
-        return self.job_array
+        return job_array
 
     def chech_channel_resource(self, job_array):
         # チャンネルリソースの空き具合をチェックする
@@ -264,32 +264,22 @@ class RecordJobTorque:
 
         return chinfo
 
-    def show(self, str_date=None, jid=None, header=None):
+    def show(self, date=None, jid=None, header=None):
         # 録画ジョブを一覧表示
-        date = None
-        if str_date:
-            # 指定日時を取得
-            date = self.analyze_date(str_date)
-            if not date:
-                print('invalid date({0})'.format(date))
-                return
-            date += datetime.timedelta(seconds=(self.dateline_offset_h*60*60))
 
-        if jid:
-            jobinfo = self.get_job_info(jid)
-        else:
-            jobinfo = self.get_job_info()
-
-        if not jobinfo:
-            return
+        jobinfo = self.get_job_info(jid)
 
         if date:
             nextday = date + datetime.timedelta(days=1)
+            # DEBUG
+            print('date', date)
+            print('nextday', nextday)
             jobinfo = [
                 i for i in jobinfo 
                     if i['rec_begin'] >= date and i['rec_begin'] < nextday]
 
-        self._print_jobinfo(jobinfo, header)
+        #self._print_jobinfo(jobinfo, header)
+        return jobinfo
 
     def _print_jobinfo(self, jobinfo, header=None):
         # チャンネル番号と局名の対応表を取得

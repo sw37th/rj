@@ -2,7 +2,13 @@ from datetime import datetime, timedelta
 import re
 import time
 
-def rj_parse_time(s_time):
+# 一日の基準時刻
+# 当日の基準時刻から翌日の基準時刻までを同一日とみなす。
+# dateline_hour=5の場合、05:00-28:59が同一日。
+dateline_hour = 5
+wormup_sconds = 10
+
+def parse_time(s_time):
     """
     'HH:MM:SS' or 'HH:MM' or 秒数 or 'now'を引数として受け取り、
     当日00:00:00からの差分としてtimedeltaオブジェクトとして返す
@@ -15,20 +21,20 @@ def rj_parse_time(s_time):
         # 'HH:MM:SS' or 'HH:MM' or 秒数
         t = list(map(int, s_time.split(':')))
         if len(t) == 3:
-            time = timedelta(seconds=(t[0] * 360) + (t[1] * 60) + t[2])
+            time = timedelta(seconds=(t[0] * 3600) + (t[1] * 60) + t[2])
         elif len(t) == 2:
-            time = timedelta(seconds=(t[0] * 360) + (t[1] * 60))
+            time = timedelta(seconds=(t[0] * 3600) + (t[1] * 60))
         elif len(t) == 1:
             time = timedelta(seconds=t[0])
     elif re.match(re_now, s_time):
         # 'now'
         n = datetime.now()
-        n_sec = (n.hour * 360) + (n.minute * 60) + n.second
+        n_sec = (n.hour * 3600) + (n.minute * 60) + n.second
         time = timedelta(seconds=n_sec, microseconds=n.microsecond)
 
     return time
 
-def rj_parse_date(s_date):
+def parse_date(s_date):
     """
     'YYYY/MM/DD|MM/DD|DD' or
     'sun|mon|tue|wed|thu|fri|sat' or
@@ -80,13 +86,82 @@ def rj_parse_date(s_date):
         elif re.match(re_today, s_date):
             # today
             date = datetime(n.year, n.month, n.day)
+            if n.hour < dateline_hour:
+                # 現在時刻が基準時刻未満の場合は前日とみなす
+                # ex) dateline_hour: 5, n.hour: 2 の場合は前日の26時扱い
+                date -= timedelta(days=1)
 
         elif re.match(re_plus, s_date):
             # +n day
             offset = int(re.match(re_plus, s_date).group(1))
             date = datetime(n.year, n.month, n.day) + timedelta(days=offset)
+            if n.hour < dateline_hour:
+                # 現在時刻が基準時刻未満の場合は前日とみなす
+                # ex) dateline_hour: 5, n.hour: 2 の場合は前日の26時扱い
+                date -= timedelta(days=1)
 
     except ValueError:
         pass
 
+    if date:
+        # 当日の基準時刻を修正する
+        date += timedelta(seconds=(dateline_hour * 3600))
+
     return date
+
+def print_jobinfo(jobinfo, chinfo=None, header=None):
+
+    if header:
+        print(header)
+    else:
+        print('ID    Ch             Title                    Start           walltime user     queue')
+
+    prev_wday = ''
+    for j in jobinfo:
+        # 表示用に録画開始時刻マージン分を加算
+        begin = j['rec_begin'] + timedelta(seconds=wormup_sconds)
+
+        if begin.hour >= dateline_hour:
+            wday = begin.strftime("%a")
+            mon  = int(begin.strftime("%m"))
+            day  = int(begin.strftime("%d"))
+            hour = int(begin.strftime("%H"))
+        else:
+            # 24時以降、dateline_hourまでの録画ジョブを当日扱いに
+            wday = (begin - timedelta(days=1)).strftime("%a")
+            mon = int((begin - timedelta(days=1)).strftime("%m"))
+            day = int((begin - timedelta(days=1)).strftime("%d"))
+            hour = int(begin.strftime("%H")) + 24
+
+        if wday != prev_wday:
+            print('----- -------------- ------------------------ --------------- -------- -------- -----')
+
+        prev_wday = wday
+
+        # チャンネル番号を元に局名を取得
+        chnum = int(j['channel'])
+        chname = ''
+        if chinfo:
+            chname = chinfo['channel'].get(chnum)
+
+        print('{0:5} {1:>3} {2:10} {3:24} {4} {5:>2}/{6:<2} {7:0>2}:{8:0>2} {9} {10:8} {11:5} {12}'.format(
+            j['JID'],
+            chnum,
+            chname,
+            j['title'],
+            wday,
+            mon,
+            day,
+            hour,
+            begin.minute,
+            j['Resource_List.walltime'],
+            j['euser'],
+            j['queue'],
+            j['record_state'],
+            ),
+            end='')
+
+        if 'alart' in j:
+            print(' ({0})'.format(j['alart']))
+        else:
+            print()
