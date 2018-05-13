@@ -16,7 +16,7 @@ Options:
 
 from docopt import docopt
 from recordjob.RecordJobTorque import RecordJobTorque
-from recordjob.rj_utils import parse_time, parse_date, print_jobinfo, parse_time_delta, is_past
+import recordjob.rj_utils as rju
 import re
 
 # dateline_hour: 一日の基準時刻(時)
@@ -38,7 +38,7 @@ rec = RecordJobTorque()
 chinfo = rec.get_channel_info()
 
 def pj(jobinfo, header=None):
-    print_jobinfo(
+    rju.print_joblist(
         jobinfo,
         chinfo,
         header=header,
@@ -48,15 +48,15 @@ def pj(jobinfo, header=None):
 
 def check_start_time(date, time):
     try:
-        begin = parse_date(date) + parse_time(time)
+        begin = rju.parse_date(date) + rju.parse_time(time)
     except TypeError:
         print("Invalid Date:", date, time)
         return None
 
     # wormup_secの秒数だけ開始時刻のマージンを取る
-    begin -= parse_time(str(wormup_sec))
+    begin -= rju.parse_time(str(wormup_sec))
 
-    if is_past(begin):
+    if rju.is_past(begin):
         print('start in the past')
         return None
 
@@ -68,9 +68,9 @@ if args['add']:
     """
 
     # 引数チェック(チャンネル)
-    re_ch = re.compile(r'^\d+$')
-    if not re.match(re_ch, args['CH']):
-        print('Invalid Channel', args['CH'])
+    ch = rju.parse_channel(args['CH'])
+    if not ch:
+        print('Invalid Channel:', args['CH'])
         exit()
 
     # 引数チェック(開始時刻)
@@ -80,14 +80,14 @@ if args['add']:
 
     # 引数チェック(録画時間)
     if args['RECORDINGTIME']:
-        rectime = parse_time(args['RECORDINGTIME'])
+        rectime = rju.parse_time(args['RECORDINGTIME'])
         if not rectime:
-            print('Invalid Recordingtime', args['RECORDINGTIME'])
+            print('Invalid Recordingtime:', args['RECORDINGTIME'])
             exit()
     else:
-        rectime = parse_time(default_rectime)
+        rectime = rju.parse_time(default_rectime)
 
-    jid = rec.add(args['CH'], args['TITLE'], begin, rectime)
+    jid = rec.add(ch, args['TITLE'], begin, rectime)
     if jid:
         jobinfo = rec.get_job_info(jid=jid)
         pj(jobinfo)
@@ -98,9 +98,9 @@ elif args['list']:
     """
     date = None
     if args['DATE']:
-        date = parse_date(args['DATE'], dateline=dateline_hour)
+        date = rju.parse_date(args['DATE'], dateline=dateline_hour)
         if not date:
-            print('invalit format', args['DATE'])
+            print('invalit format:', args['DATE'])
             exit()
 
     jobinfo = rec.get_job_info(date=date)
@@ -126,7 +126,7 @@ elif args['modbegin']:
 
     if args['DELTATIME']:
         # 相対時刻で変更
-        time_delta = parse_time_delta(args['DELTATIME'])
+        time_delta = rju.parse_time_delta(args['DELTATIME'])
         if time_delta:
             rec.mod_begintime(jobinfo, time_delta=time_delta)
     else:

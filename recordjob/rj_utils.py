@@ -1,13 +1,29 @@
+# -*- coding: utf-8 -*-
+
 from datetime import datetime, timedelta
 import re
 import time
 
 def is_past(time):
+    """
+    引数で渡されたdatetimeオブジェクトが
+    現在時刻より過去の場合にTrueを返す
+    """
     current = datetime.now()
     if time < current:
         return True
     else:
         return False
+
+def parse_channel(s_ch):
+    """
+    チャンネル番号をパース
+    """
+    re_ch = re.compile(r'^\d+$')
+    if not re.match(re_ch, s_ch):
+        return ''
+
+    return s_ch
 
 def parse_time(s_time):
     """
@@ -128,8 +144,10 @@ def parse_date(s_date, dateline=0):
 
     return date
 
-def print_jobinfo(jobinfo, chinfo=None, header=None, dateline=0, wormup=0):
-
+def print_joblist(jobinfo, chinfo=None, header=None, dateline=0, wormup=0):
+    """
+    ジョブの配列を受け取り一覧表示する
+    """
     if header:
         print(header)
     else:
