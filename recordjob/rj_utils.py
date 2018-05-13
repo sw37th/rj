@@ -197,9 +197,26 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
         # ジョブのチャンネル番号を元に対応する局名を取得
         chnum = int(j.get('channel'))
         chname = ch.get(chnum, '')
+        s_elapse = ''
+
+        # 実行中のジョブの経過時間を取得
+        elapse = j.get('elapse')
+        if elapse:
+            s_elapse = '{:02}:{:02}:{:02}'.format(
+                int(elapse / 3600),
+                int(elapse / 60),
+                int(elapse % 60))
+
+        # ジョブの状態を取得
+        state = j.get('record_state', '')
+        if state == 'Waiting':
+            # Waiting表示がうるさいので削る
+            state = ''
+        if j.get('alert'):
+            state = ' '.join((j.get('alert'), state))
 
         print(
-            '{:5} {:>3} {:10} {:24} {} {} {:8} {:5} {}'.format(
+            '{:5} {:>3} {:10} {:24} {} {} {:8} {:5} {} {}'.format(
                 j.get('JID'),
                 chnum,
                 chname,
@@ -208,14 +225,10 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
                 j.get('Resource_List.walltime'),
                 j.get('euser'),
                 j.get('queue'),
-                j.get('record_state'),
-                ),
-            end='')
-
-        if 'alart' in j:
-            print(' ({})'.format(j.get('alart')))
-        else:
-            print()
+                state,
+                s_elapse,
+            )
+        )
 
 def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
     """
@@ -231,35 +244,50 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
         e_wday, e_mon, e_day, e_hour = eval_dateline(begin, dateline)
 
         # ジョブ開始時刻
-        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
+        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}:{:0>2}'.format(
             b_wday,
             b_mon,
             b_day,
             b_hour,
-            begin.minute)
+            begin.minute,
+            begin.second)
 
         # ジョブ終了時刻
-        endtime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
+        endtime = '{} {:>2}/{:<2} {:0>2}:{:0>2}:{:0>2}'.format(
             e_wday,
             e_mon,
             e_day,
             e_hour,
-            end.minute)
+            end.minute,
+            end.second)
 
         chnum = int(j.get('channel'))
         chname = ch.get(chnum, '')
+        s_elapse = None
+
+        # 実行中のジョブの経過時間を取得
+        elapse = j.get('elapse')
+        if elapse:
+            s_elapse = '{:02}:{:02}:{:02}'.format(
+                int(elapse / 3600),
+                int(elapse / 60),
+                int(elapse % 60))
+
 
         print('Title:', j.get('title'))
         print('  Job Id:          ', j.get('JID'))
-        print('  channel number:  ', chnum)
-        print('  channel name:    ', chname)
-        print('  start:           ', starttime)
-        print('  end:             ', endtime)
-        print('  walltime:        ', j.get('Resource_List.walltime'))
-        print('  job execute time:', j.get('Execution_Time'))
-        print('  job create time: ', j.get('ctime'))
-        print('  job modify time: ', j.get('mtime'))
-        print('  owner:           ', j.get('euser'))
-        print('  group:           ', j.get('egroup'))
-        print('  queue:           ', j.get('queue'))
+        print('  Channel number:  ', chnum)
+        print('  Channel name:    ', chname)
+        print('  Start:           ', starttime)
+        print('  End:             ', endtime)
+        print('  Walltime:        ', j.get('Resource_List.walltime'))
+        print('  Elapse time:     ', s_elapse)
+        print('  Job execute time:', j.get('Execution_Time'))
+        print('  Job create time: ', j.get('ctime'))
+        print('  Job modify time: ', j.get('mtime'))
+        print('  Execute host:    ', j.get('exec_host'))
+        print('  Owner:           ', j.get('euser'))
+        print('  Group:           ', j.get('egroup'))
+        print('  Queue:           ', j.get('queue'))
         print('  State:           ', j.get('record_state'))
+        print('  Alert:           ', j.get('alert'))
