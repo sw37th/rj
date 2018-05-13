@@ -151,5 +151,7 @@ elif args['chlist']:
     """
     テレビ局名とチャンネル番号の一覧を表示する
     """
-    for name, num in sorted(chinfo['channel'].items(), key=lambda x: x[0]):
+    print('  Ch: TV station name')
+    print(' ---- ----------------')
+    for name, num in sorted(chinfo.items(), key=lambda x: x[0]):
         print('{:>4}: {}'.format(name, num))
