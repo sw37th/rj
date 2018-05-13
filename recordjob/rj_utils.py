@@ -166,9 +166,6 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
     """
     ジョブの配列を受け取り一覧表示する
     """
-    # テレビ局名とチャンネル番号を取得
-    ch = chinfo.get('channel', {})
-
     if header:
         print(header)
     else:
@@ -196,7 +193,7 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
 
         # ジョブのチャンネル番号を元に対応する局名を取得
         chnum = int(j.get('channel'))
-        chname = ch.get(chnum, '')
+        chname = chinfo.get(chnum, '')
         s_elapse = ''
 
         # 実行中のジョブの経過時間を取得
@@ -234,7 +231,6 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
     """
     ジョブの配列を受け取り詳細情報を表示する
     """
-    ch = chinfo.get('channel', {})
     for j in jobinfo:
         # 表示用に録画開始時刻マージン分を加算
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
@@ -262,7 +258,7 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
             end.second)
 
         chnum = int(j.get('channel'))
-        chname = ch.get(chnum, '')
+        chname = chinfo.get(chnum, '')
         s_elapse = None
 
         # 実行中のジョブの経過時間を取得

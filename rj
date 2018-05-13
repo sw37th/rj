@@ -35,7 +35,7 @@ default_rectime = '00:29:30'
 args = docopt(__doc__)
 
 rec = RecordJobTorque()
-chinfo = rec.get_channel_info()
+chinfo = rec.get_channel_info().get('channel', {})
 
 def pj(jobinfo, header=None):
     rju.print_joblist(
