@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import subprocess
+from subprocess import Popen, PIPE, TimeoutExpired
 import re
 import datetime
 import time
@@ -49,7 +49,7 @@ class RecordJobTorque:
             'S': "Suspend",
         }
 
-    def get_job_info(self, target_jid=None):
+    def _get_torque_job_info(self, target_jid=None):
         jobs = {}
         present = datetime.datetime.now()
 
@@ -62,10 +62,11 @@ class RecordJobTorque:
         # qstat -f -1でジョブ情報を取得し、２次元dictに詰める
         # jobs['jobid'][{"key": value, "key": value, ...}]
         try:
-            with subprocess.Popen(self.qstat,
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE) as pjob:
+            with Popen(self.qstat,
+                universal_newlines=True,
+                stdout=PIPE,
+                stderr=PIPE
+            ) as pjob:
 
                 re_jobid = re.compile(r'^Job Id:\s*(\d+)\.')
                 re_equal = re.compile(r'^\s+([\w.]+) = (.+$)')
@@ -176,10 +177,11 @@ class RecordJobTorque:
         # np:         チューナー数
         # state:      ノードの状態
         try:
-            with subprocess.Popen(self.pbsnodes,
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE) as pnodes:
+            with Popen(self.pbsnodes,
+                universal_newlines=True,
+                stdout=PIPE,
+                stderr=PIPE
+            ) as pnodes:
                 re_ninfo = re.compile(r'^\s+(state|np|properties) = (\S+)')
                 re_nname = re.compile(r'^\S+')
                 for ninfo in pnodes.stdout:
@@ -210,49 +212,30 @@ class RecordJobTorque:
 
         return queue_info
 
-    def mod_begintime(self, jid, delta):
-        # 録画ジョブの開始時間を変更する。
-        # +HH:MM:SS or -HH:MM:SS
-        jobinfo = self.get_job_info(jid)
-        if jobinfo is None:
-            print('JID: {} not found'.format(jid))
-            return
+    def mod_begintime(self, jobinfo, time_delta):
+        """
+        録画ジョブの開始時間を変更する。
+        """
 
-        # 変更前のジョブ情報を表示
-        self._print_jobinfo(jobinfo)
-
-        re_delta = re.compile(r'^([+-])([\w:]+)')
-        if re.match(re_delta, delta):
-            (delta_sign, delta_time) = re.match(re_delta, delta).group(1, 2)
-
-            if delta_sign == '+':
-                jobinfo[0]['rec_begin'] += self.analyze_time(delta_time)
-            else:
-                jobinfo[0]['rec_begin'] -= self.analyze_time(delta_time)
+        jobinfo[0]['rec_begin'] += time_delta
 
         # make qalter argument
         at = '{_year:>4}{_mon:0>2}{_day:0>2}{_hour:0>2}{_min:0>2}.{_sec:0>2}'.format(
-        _year=jobinfo[0]['rec_begin'].year,
-        _mon=jobinfo[0]['rec_begin'].month,
-        _day=jobinfo[0]['rec_begin'].day,
-        _hour=jobinfo[0]['rec_begin'].hour,
-        _min=jobinfo[0]['rec_begin'].minute,
-        _sec=jobinfo[0]['rec_begin'].second)
-        self.qalter.extend([at, jid])
+            _year=jobinfo[0]['rec_begin'].year,
+            _mon=jobinfo[0]['rec_begin'].month,
+            _day=jobinfo[0]['rec_begin'].day,
+            _hour=jobinfo[0]['rec_begin'].hour,
+            _min=jobinfo[0]['rec_begin'].minute,
+            _sec=jobinfo[0]['rec_begin'].second)
+
+        self.qalter.extend([at, jobinfo[0]['JID']])
 
         # ジョブ開始時間を変更
         try:
-            with subprocess.Popen(self.qalter, universal_newlines=True) as modify:
+            with Popen(self.qalter, universal_newlines=True) as modify:
                 modify.wait(timeout=self.comm_timeout)
         except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot modify job: {0}'.format(err))
-            return
-
-        # 変更後のジョブ情報を表示
-        jobinfo = self.get_job_info(jid)
-        self._print_jobinfo(jobinfo, "(Modified to)")
-
-        return
 
     def get_channel_info(self):
         # チャンネル番号と局名の対応表を取得して返す
@@ -264,10 +247,10 @@ class RecordJobTorque:
 
         return chinfo
 
-    def show(self, date=None, jid=None, header=None):
+    def get_job_info(self, date=None, jid=None):
         # 録画ジョブを一覧表示
 
-        jobinfo = self.get_job_info(jid)
+        jobinfo = self._get_torque_job_info(jid)
 
         if date:
             nextday = date + datetime.timedelta(days=1)
@@ -278,7 +261,6 @@ class RecordJobTorque:
                 i for i in jobinfo 
                     if i['rec_begin'] >= date and i['rec_begin'] < nextday]
 
-        #self._print_jobinfo(jobinfo, header)
         return jobinfo
 
     def _print_jobinfo(self, jobinfo, header=None):
@@ -433,7 +415,7 @@ class RecordJobTorque:
         re_ch = re.compile(r'^\d+$')
         if not re.match(re_ch, ch):
             print('invalid channel({0})'.format(ch))
-            return
+            return ''
 
         if int(ch) < 100:
             # for terrestrial television
@@ -447,17 +429,17 @@ class RecordJobTorque:
         rec_date = self.analyze_date(date)
         if rec_date is None:
             print('invalid date({0})'.format(date))
-            return
+            return ''
 
         rec_begin_time = self.analyze_time(time)
         if rec_begin_time is None:
             print('invalid time({0})'.format(time))
-            return
+            return ''
 
         walltime = self.analyze_time(wt)
         if walltime is None:
             print('invalid walltime({0})'.format(wt))
-            return
+            return ''
 
         rec_begin = rec_date + rec_begin_time - datetime.timedelta(seconds=self.wormup_offset_s)
 
@@ -465,7 +447,7 @@ class RecordJobTorque:
             # 指定された開始時刻が過ぎている
             print('start in the past?')
             #print('begin: %r,  now: %r' % (rec_begin, present))
-            return
+            return ''
 
         # qsub の -a オプションに渡すジョブ開始時刻を生成
         at = '{0:0>4}{1:0>2}{2:0>2}{3:0>2}{4:0>2}.{5:0>2}'.format(
@@ -508,25 +490,24 @@ _id=`echo $PBS_JOBID | awk -F'.' '{{printf("%04d", $1)}}'`
                 _lnb=lnb))
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create jobscript: {0}'.format(err))
-            return
+            return ''
 
         try:
-            with subprocess.Popen(
+            with Popen(
                 (self.qsub, filename),
                 universal_newlines=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdout=PIPE,
+                stderr=PIPE
             ) as submit:
                 # waiting for complete of job submit
                 submit.wait(timeout=self.comm_timeout)
 
-                # show submitted job information
+                # get submitted job's ID
                 stdout_data, stderr_data = submit.communicate()
                 jid = re.match(r'^(\d+)\.', stdout_data).group(1)
-                self.show(jid=jid)
 
         except (OSError, ValueError, TimeoutExpired) as err:
             print('cannot submit job: {0}'.format(err))
-            return
+            return ''
 
-        return
+        return jid

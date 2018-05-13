@@ -15,7 +15,7 @@ Options:
 
 from docopt import docopt
 from recordjob.RecordJobTorque import RecordJobTorque
-from recordjob.rj_utils import parse_time, parse_date, print_jobinfo
+from recordjob.rj_utils import parse_time, parse_date, print_jobinfo, parse_time_delta
 
 default_rectime = '00:29:30'
 
@@ -32,7 +32,11 @@ if args['add']:
     else:
         rectime = default_rectime
 
-    rec.add(args['CH'], args['TITLE'], args['DATE'], args['TIME'], rectime)
+    jid = rec.add(args['CH'], args['TITLE'], args['DATE'], args['TIME'], rectime)
+    if jid:
+        chinfo = rec.get_channel_info()
+        jobinfo = rec.get_job_info(jid=jid)
+        print_jobinfo(jobinfo, chinfo)
 
 elif args['list']:
     """
@@ -46,21 +50,32 @@ elif args['list']:
             exit()
 
     chinfo = rec.get_channel_info()
-    jobinfo = rec.show(date=date)
+    jobinfo = rec.get_job_info(date=date)
     print_jobinfo(jobinfo, chinfo)
 
 elif args['show']:
     """
     引数に指定されたIDのジョブを表示する
     """
-    rec.show(jid=args['JOBID'])
+    chinfo = rec.get_channel_info()
+    jobinfo = rec.get_job_info(jid=args['JOBID'])
+    print_jobinfo(jobinfo, chinfo)
 
 elif args['modbegin']:
     """
     録画ジョブの開始時間を変更する
     """
     if args['DELTATIME']:
-        rec.mod_begintime(args['JOBID'], args['DELTATIME'])
+        time_delta = parse_time_delta(args['DELTATIME'])
+
+        if time_delta:
+            jobinfo = rec.get_job_info(jid=args['JOBID'])
+            chinfo = rec.get_channel_info()
+            # before modify
+            print_jobinfo(jobinfo, chinfo)
+            rec.mod_begintime(jobinfo, time_delta)
+            # after modify
+            print_jobinfo(jobinfo, chinfo, '(Start time modified)')
     else:
         print("not implemented yet")
         print("rec.mod_begintime({}, {}, {})".format(

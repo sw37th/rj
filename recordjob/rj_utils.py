@@ -34,6 +34,24 @@ def parse_time(s_time):
 
     return time
 
+def parse_time_delta(s_time_delta):
+    """
+    'HH:MM:SS' or 'HH:MM:SS+' or 'HH:MM:SS-'を引数として受け取り、
+    timedeltaオブジェクトとして返す
+    """
+    re_delta = re.compile(r'^([\w:]+)([+-]*)$')
+    if re.match(re_delta, s_time_delta):
+        s_time, sign = re.match(re_delta, s_time_delta).group(1, 2)
+
+    time = parse_time(s_time)
+    if time:
+        if sign == '-':
+            return -time
+        else:
+            return time
+    else:
+        return None
+
 def parse_date(s_date):
     """
     'YYYY/MM/DD|MM/DD|DD' or
