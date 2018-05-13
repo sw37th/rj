@@ -2,7 +2,7 @@
 
 from subprocess import Popen, PIPE, TimeoutExpired
 import re
-import datetime
+from datetime import datetime, timedelta
 import time
 import yaml
 
@@ -41,13 +41,17 @@ class RecordJobTorque:
             'Q': "Queued",
             'R': "Recording",
             'T': "Moved",
-            'W': "",
+            'W': "Waiting",
             'S': "Suspend",
         }
 
     def _get_torque_job_info(self, target_jid=None):
+        """
+        qstatコマンドを-f -1オプション付きで実行した出力から
+        ジョブ毎の情報を取得し配列として返す
+        """
         jobs = {}
-        present = datetime.datetime.now()
+        current = datetime.now()
 
         if target_jid:
             if not target_jid.isdigit():
@@ -77,7 +81,7 @@ class RecordJobTorque:
 
                     if re.match(re_equal, jinfo):
                         # set key and value to jobs['jobid']
-                        (jkey, jval) = re.match(re_equal, jinfo).group(1,2)
+                        jkey, jval = re.match(re_equal, jinfo).group(1,2)
                         jobs[jid][jkey] = jval
 
         except (OSError, ValueError) as err:
@@ -86,47 +90,40 @@ class RecordJobTorque:
 
         # 不足する情報を追加
         for jid in jobs.keys():
-            if 'Execution_Time' in jobs[jid]:
+            job = jobs[jid]
+            if 'Execution_Time' in job:
                 # 実行開始前(State: W)のジョブ。
                 # 実行開始時間はqstat -fのExectiton_Timeから取得できる。
                 # ex. "Tue Mar 15 23:59:50 2016"
-                jobs[jid]['rec_begin'] = datetime.datetime.strptime(
-                                            jobs[jid]['Execution_Time'],
-                                            "%a %b %d %H:%M:%S %Y")
-            elif 'start_time' in jobs[jid]:
+                job['rec_begin'] = datetime.strptime(
+                    job['Execution_Time'], "%a %b %d %H:%M:%S %Y")
+            elif 'start_time' in job:
                 # 実行中(State: R)、実行終了(State: C)のジョブ。
                 # 実行開始時間はqstat -fのstart_timeから取得できる。
                 # フォーマットはExecution_Timeに同じ。
-                jobs[jid]['rec_begin'] = datetime.datetime.strptime(
-                                            jobs[jid]['start_time'],
-                                            "%a %b %d %H:%M:%S %Y")
+                job['rec_begin'] = datetime.strptime(
+                    job['start_time'], "%a %b %d %H:%M:%S %Y")
             else:
                 # ここに来るケースあるかしら？
-                jobs[jid]['rec_begin'] = present;
+                job['rec_begin'] = current;
 
-            # ジョブ終了時間をjobs[jid]['rec_end']に登録する。
+            # ジョブ終了時間をjob['rec_end']に登録する。
             # ジョブ開始時間 + Resource_List.walltime
-            (wt_h, wt_m, wt_s) = list(map(int, jobs[jid]['Resource_List.walltime'].split(':')))
-            jobs[jid]['rec_end'] = (jobs[jid]['rec_begin'] +
-                                    datetime.timedelta(hours=wt_h, minutes=wt_m, seconds=wt_s))
+            wt_h, wt_m, wt_s = list(
+                map(int, job['Resource_List.walltime'].split(':')))
+            job['rec_end'] = (
+                job['rec_begin'] + timedelta(
+                    hours=wt_h, minutes=wt_m, seconds=wt_s))
 
             # タイトル、チャンネル番号を登録する
-            (jobs[jid]['channel'], jobs[jid]['title']) = jobs[jid]['Job_Name'].split('.', 1)
+            job['channel'], job['title'] = job['Job_Name'].split('.', 1)
 
             # qstatのjob_stateをわかりやすい表記に
-            jobs[jid]['record_state'] = self.job_state[jobs[jid]['job_state']]
+            job['record_state'] = self.job_state[job['job_state']]
 
-            if jobs[jid]['job_state'] == 'R':
+            if job['job_state'] == 'R':
                 # 録画開始からの経過時間を算出
-                elapse = (present - jobs[jid]['rec_begin']).seconds
-                # record_stateに経過時間と録画実行ホストを追記
-                jobs[jid]['record_state'] = (
-                    jobs[jid]['record_state'] +
-                    "({0:02}:{1:02}:{2:02})@{3}".format(
-                        int(elapse/60/60),
-                        int(elapse/60),
-                        elapse%60,
-                        re.sub('/.*$', '', jobs[jid]['exec_host'])))
+                job['elapse'] = (current - job['rec_begin']).seconds
 
         job_array = [jobs[x] for x in sorted(jobs.keys())]
         job_array = sorted(job_array, key=lambda j: j['rec_begin'])
@@ -135,7 +132,9 @@ class RecordJobTorque:
         return job_array
 
     def _check_channel_resource(self, job_array):
-        # チャンネルリソースの空き具合をチェックする
+        """
+        チャンネルリソースの空き具合をチェックする
+        """
         queue_info = self._get_queue_info()
 
         for job in job_array:
@@ -161,17 +160,19 @@ class RecordJobTorque:
                     # queue_info[job['queue']]['jobs']にこのジョブを登録
                     queue_info[job['queue']]['jobs'].append(job)
                 else:
-                    job['alart'] = 'NoResource'
+                    job['alert'] = 'NoResource'
 
     def _get_queue_info(self):
+        """
+        pbsnodes -qの出力から以下の情報を取得し、ハッシュとして返す。
+          ノード名
+          properties: そのノードの所属するキュー名
+          np:         チューナー数
+          state:      ノードの状態
+        """
         nodes = {}
         queue_info = {}
 
-        # pbsnodes -qの出力から以下の情報を取得する。
-        # ノード名
-        # properties: そのノードの所属するキュー名
-        # np:         チューナー数
-        # state:      ノードの状態
         try:
             with Popen(self.pbsnodes,
                 universal_newlines=True,
@@ -237,7 +238,9 @@ class RecordJobTorque:
             print('cannot modify job: {0}'.format(err))
 
     def get_channel_info(self):
-        # チャンネル番号と局名の対応表をYAMLファイルから取得して返す
+        """
+        チャンネル番号と局名の対応表をYAMLファイルから取得して返す
+        """
         try:
             with open(self.channel_file) as f:
                 chinfo = yaml.load(f)
@@ -247,13 +250,15 @@ class RecordJobTorque:
         return chinfo
 
     def get_job_info(self, date=None, jid=None):
-        # 録画ジョブ情報を取得して配列として返す
+        """
+        録画ジョブ情報を取得して配列として返す
+        """
 
         jobinfo = self._get_torque_job_info(jid)
 
         if date:
             # dateで指定された日のジョブのみを配列に詰め直す
-            nextday = date + datetime.timedelta(days=1)
+            nextday = date + timedelta(days=1)
             jobinfo = [
                 i for i in jobinfo 
                     if i['rec_begin'] >= date and i['rec_begin'] < nextday
