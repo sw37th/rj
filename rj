@@ -111,7 +111,12 @@ elif args['show']:
     引数に指定されたIDのジョブを表示する
     """
     jobinfo = rec.get_job_info(jid=args['JOBID'])
-    pj(jobinfo)
+    if jobinfo:
+        rju.print_job_information(
+            jobinfo,
+            chinfo,
+            dateline=dateline_hour,
+            wormup=wormup_sec)
 
 elif args['modbegin']:
     """

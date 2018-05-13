@@ -144,10 +144,31 @@ def parse_date(s_date, dateline=0):
 
     return date
 
-def print_joblist(jobinfo, chinfo=None, header=None, dateline=0, wormup=0):
+def eval_dateline(time, dateline):
+    """
+    datetimeオブジェクトtimeに対し、datalineを加味した結果の
+    wday, mon, day, hourを返す
+    """
+    if time.hour >= dateline:
+        wday = time.strftime("%a")
+        mon  = int(time.strftime("%m"))
+        day  = int(time.strftime("%d"))
+        hour = int(time.strftime("%H"))
+    else:
+        # 24時以降、datelineまでを当日扱いに
+        wday = (time - timedelta(days=1)).strftime("%a")
+        mon = int((time - timedelta(days=1)).strftime("%m"))
+        day = int((time - timedelta(days=1)).strftime("%d"))
+        hour = int(time.strftime("%H")) + 24
+    return (wday, mon, day, hour)
+
+def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
     """
     ジョブの配列を受け取り一覧表示する
     """
+    # テレビ局名とチャンネル番号を取得
+    ch = chinfo.get('channel', {})
+
     if header:
         print(header)
     else:
@@ -156,49 +177,89 @@ def print_joblist(jobinfo, chinfo=None, header=None, dateline=0, wormup=0):
     prev_wday = ''
     for j in jobinfo:
         # 表示用に録画開始時刻マージン分を加算
-        begin = j['rec_begin'] + timedelta(seconds=wormup)
+        begin = j.get('rec_begin') + timedelta(seconds=wormup)
 
-        if begin.hour >= dateline:
-            wday = begin.strftime("%a")
-            mon  = int(begin.strftime("%m"))
-            day  = int(begin.strftime("%d"))
-            hour = int(begin.strftime("%H"))
-        else:
-            # 24時以降、datelineまでの録画ジョブを当日扱いに
-            wday = (begin - timedelta(days=1)).strftime("%a")
-            mon = int((begin - timedelta(days=1)).strftime("%m"))
-            day = int((begin - timedelta(days=1)).strftime("%d"))
-            hour = int(begin.strftime("%H")) + 24
+        wday, mon, day, hour = eval_dateline(begin, dateline)
+
+        # ジョブ開始時刻
+        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
+            wday,
+            mon,
+            day,
+            hour,
+            begin.minute)
 
         if wday != prev_wday:
             print('----- -------------- ------------------------ --------------- -------- -------- -----')
 
         prev_wday = wday
 
-        # チャンネル番号を元に局名を取得
-        chnum = int(j['channel'])
-        chname = ''
-        if chinfo:
-            chname = chinfo['channel'].get(chnum)
+        # ジョブのチャンネル番号を元に対応する局名を取得
+        chnum = int(j.get('channel'))
+        chname = ch.get(chnum, '')
 
-        print('{0:5} {1:>3} {2:10} {3:24} {4} {5:>2}/{6:<2} {7:0>2}:{8:0>2} {9} {10:8} {11:5} {12}'.format(
-            j['JID'],
-            chnum,
-            chname,
-            j['title'],
-            wday,
-            mon,
-            day,
-            hour,
-            begin.minute,
-            j['Resource_List.walltime'],
-            j['euser'],
-            j['queue'],
-            j['record_state'],
-            ),
+        print(
+            '{:5} {:>3} {:10} {:24} {} {} {:8} {:5} {}'.format(
+                j.get('JID'),
+                chnum,
+                chname,
+                j.get('title'),
+                starttime,
+                j.get('Resource_List.walltime'),
+                j.get('euser'),
+                j.get('queue'),
+                j.get('record_state'),
+                ),
             end='')
 
         if 'alart' in j:
-            print(' ({0})'.format(j['alart']))
+            print(' ({})'.format(j.get('alart')))
         else:
             print()
+
+def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
+    """
+    ジョブの配列を受け取り詳細情報を表示する
+    """
+    ch = chinfo.get('channel', {})
+    for j in jobinfo:
+        # 表示用に録画開始時刻マージン分を加算
+        begin = j.get('rec_begin') + timedelta(seconds=wormup)
+        end = j.get('rec_end') + timedelta(seconds=wormup)
+
+        b_wday, b_mon, b_day, b_hour = eval_dateline(begin, dateline)
+        e_wday, e_mon, e_day, e_hour = eval_dateline(begin, dateline)
+
+        # ジョブ開始時刻
+        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
+            b_wday,
+            b_mon,
+            b_day,
+            b_hour,
+            begin.minute)
+
+        # ジョブ終了時刻
+        endtime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
+            e_wday,
+            e_mon,
+            e_day,
+            e_hour,
+            end.minute)
+
+        chnum = int(j.get('channel'))
+        chname = ch.get(chnum, '')
+
+        print('Title:', j.get('title'))
+        print('  Job Id:          ', j.get('JID'))
+        print('  channel number:  ', chnum)
+        print('  channel name:    ', chname)
+        print('  start:           ', starttime)
+        print('  end:             ', endtime)
+        print('  walltime:        ', j.get('Resource_List.walltime'))
+        print('  job execute time:', j.get('Execution_Time'))
+        print('  job create time: ', j.get('ctime'))
+        print('  job modify time: ', j.get('mtime'))
+        print('  owner:           ', j.get('euser'))
+        print('  group:           ', j.get('egroup'))
+        print('  queue:           ', j.get('queue'))
+        print('  State:           ', j.get('record_state'))
