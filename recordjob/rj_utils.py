@@ -2,11 +2,12 @@ from datetime import datetime, timedelta
 import re
 import time
 
-# 一日の基準時刻
-# 当日の基準時刻から翌日の基準時刻までを同一日とみなす。
-# dateline_hour=5の場合、05:00-28:59が同一日。
-dateline_hour = 5
-wormup_sconds = 10
+def is_past(time):
+    current = datetime.now()
+    if time < current:
+        return True
+    else:
+        return False
 
 def parse_time(s_time):
     """
@@ -52,7 +53,7 @@ def parse_time_delta(s_time_delta):
     else:
         return None
 
-def parse_date(s_date):
+def parse_date(s_date, dateline=0):
     """
     'YYYY/MM/DD|MM/DD|DD' or
     'sun|mon|tue|wed|thu|fri|sat' or
@@ -104,18 +105,18 @@ def parse_date(s_date):
         elif re.match(re_today, s_date):
             # today
             date = datetime(n.year, n.month, n.day)
-            if n.hour < dateline_hour:
+            if n.hour < dateline:
                 # 現在時刻が基準時刻未満の場合は前日とみなす
-                # ex) dateline_hour: 5, n.hour: 2 の場合は前日の26時扱い
+                # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
                 date -= timedelta(days=1)
 
         elif re.match(re_plus, s_date):
             # +n day
             offset = int(re.match(re_plus, s_date).group(1))
             date = datetime(n.year, n.month, n.day) + timedelta(days=offset)
-            if n.hour < dateline_hour:
+            if n.hour < dateline:
                 # 現在時刻が基準時刻未満の場合は前日とみなす
-                # ex) dateline_hour: 5, n.hour: 2 の場合は前日の26時扱い
+                # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
                 date -= timedelta(days=1)
 
     except ValueError:
@@ -123,11 +124,11 @@ def parse_date(s_date):
 
     if date:
         # 当日の基準時刻を修正する
-        date += timedelta(seconds=(dateline_hour * 3600))
+        date += timedelta(seconds=(dateline * 3600))
 
     return date
 
-def print_jobinfo(jobinfo, chinfo=None, header=None):
+def print_jobinfo(jobinfo, chinfo=None, header=None, dateline=0, wormup=0):
 
     if header:
         print(header)
@@ -137,15 +138,15 @@ def print_jobinfo(jobinfo, chinfo=None, header=None):
     prev_wday = ''
     for j in jobinfo:
         # 表示用に録画開始時刻マージン分を加算
-        begin = j['rec_begin'] + timedelta(seconds=wormup_sconds)
+        begin = j['rec_begin'] + timedelta(seconds=wormup)
 
-        if begin.hour >= dateline_hour:
+        if begin.hour >= dateline:
             wday = begin.strftime("%a")
             mon  = int(begin.strftime("%m"))
             day  = int(begin.strftime("%d"))
             hour = int(begin.strftime("%H"))
         else:
-            # 24時以降、dateline_hourまでの録画ジョブを当日扱いに
+            # 24時以降、datelineまでの録画ジョブを当日扱いに
             wday = (begin - timedelta(days=1)).strftime("%a")
             mon = int((begin - timedelta(days=1)).strftime("%m"))
             day = int((begin - timedelta(days=1)).strftime("%d"))
