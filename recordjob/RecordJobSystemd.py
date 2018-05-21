@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime, timedelta
+from subprocess import Popen, PIPE, TimeoutExpired
 import recordjob
 
 # Systemd commands
@@ -13,7 +14,6 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.sytemctl = systemctl_path
         self.systemdrun = systemdrun_path
         self.name = 'RecordJobSystemd'
-        self.args_base = '--user --timer-property=AccuracySec=1s '
 
     def __str__(self):
         return self.name
@@ -31,31 +31,57 @@ class RecordJobSystemd(recordjob.RecordJob):
             tuner = 'bs'
             lnb = '--lnb 15'
 
-        current = datetime.now()
-
-        # ジョブスクリプト作成
-        jobsh_name = self.scriptdir + '/' + '{}.{}.{}-{}.sh'.format(
+        tsfile = self.recdir + '/{}.{}.`date +%Y%m%d_%H%M.%S`.$$$.ts'.format(
             title,
             ch,
-            begin.strftime('%Y%m%d%H%M%S'),
-            current.strftime('%Y%m%d%H%M%S'))
-        jobsh_body = """umask 022
-{} {} --b25 --strip {} - {}/{}.{}.`date +%Y%m%d_%H%M.%S`.$$.ts
-""".format(self.recpt1_path, lnb, ch, self.recdir, title, ch)
+        )
 
-        try:
-            with open(jobsh_name, 'w') as f:
-                f.write(jobsh_body)
-        except (PermissionError, FileNotFoundError) as err:
-            print('cannot create jobscript: {}'.format(err))
-            return ''
+        # ジョブコマンド作成
+        c = [
+            self.recpt1_path,
+            '--b25',
+            '--strip',
+            ch,
+            str(int(rectime.total_seconds())),
+            tsfile,
+        ]
+        if lnb:
+            c.insert(3, lnb)
+        command = ' '.join(c)
+
+        # systemd.timer登録用コマンド作成
+        at = begin.strftime('%Y-%m-%d %H:%M:%S')
+        timer_date = "--on-calendar={}".format(at)
+        timer_name = "--unit=RJ.{}_{}.{}".format(ch, title, tuner)
+        timer = [
+            self.systemdrun,
+            '--user',
+            '--collect',
+            '--timer-property=AccuracySec=1s',
+            timer_date,
+            timer_name,
+            '/bin/bash',
+            '-c',
+            command
+        ]
+        print(timer_date)
+        print(timer_name)
+        print(timer)
 
         # systemd.timer登録
-        at = begin.strftime('%Y-%m-%d %H:%M:%S')
-        sr_arg_date = "--on-calendar='{}'".format(at)
-        sr_arg_name = "--unit='rj_{}_{}'".format(ch, title)
-        command = '/bin/bash ' + jobsh_name
-        print(sr_arg_date)
-        print(sr_arg_name)
-        print(command)
-
+        try:
+            with Popen(
+                timer,
+                universal_newlines=True,
+                stdout=PIPE,
+                stderr=PIPE
+            ) as submit:
+                # waiting for complete of job submit
+                submit.wait(timeout=self.comm_timeout)
+                stdout_data, stderr_data = submit.communicate()
+                if stdout_data:
+                    print("STDOUT:", stdout_data)
+                if stderr_data:
+                    print("STDERR:", stderr_data)
+        except (OSError, ValueError, TimeoutExpired) as err:
+            print('cannot submit job: {}'.format(err))
