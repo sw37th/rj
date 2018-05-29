@@ -17,6 +17,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.systemctlshow = [
             systemctl_path,
             '--user',
+            '--all',
             '--no-pager',
             'show',
         ]
@@ -117,34 +118,44 @@ class RecordJobSystemd(recordjob.RecordJob):
 
     def get_systemd_job_info(self, target_jid=None):
         """
-        systemctl --user --no-pager --all list-timersの出力から
-        ジョブ毎の情報を取得し配列として返す
+        systemctl --user --all --no-pager show 'RJ.*.timer' の出力を
+        ジョブ毎にDictにまとめ、配列に詰めて返す
         """
-        jobs = {}
 
         if not target_jid:
-            target_jid = '*.timer'
+            target_jid = 'RJ.*.timer'
 
         self.systemctlshow.append(target_jid)
+        print(self.systemctlshow)
 
+        jobs = {}
         try:
             with Popen(self.systemctlshow,
                 universal_newlines=True,
                 stdout=PIPE,
                 stderr=STDOUT,
-            ) as timers:
-                # Thu 2018-05-24 01:34:50 JST RJ.15.test.20180524013450.tt.timer
-                re_line = re.compile(
-                    '(\w{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*' +
-                    'RJ\.(\w.+)\.timer'
-                )
-                # 15.test.20180524013450.tt
-                re_job = re.compile(
-                    '(\d.+)\.(\w.+)\.(\d{14})\.(\w{2})'
-                )
+            ) as J:
+                jobarr = []
+                job = {}
+                for i in J.stdout:
+                    i = i.strip()
+                    if not i:
+                        jobarr.append(job)
+                        job = {}
+                        continue
+                    k, v = i.split('=', 1)
+                    job[k] = v
+                # append last job
+                jobarr.append(job)
 
-                for i in timers.stdout:
-                    print(i)
+                for i in jobarr:
+                    rec_begin = i.get('NextElapseUSecRealtime')
+                    # Thu 2018-05-24 01:34:50 JST
+                    i['rec_begin'] = datetime.strptime(
+                        rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
+                    )
+                    jobs[i.get('Unit')] = i
+
                 """
                     l = re.match(re_line, i)
                     if l:
@@ -159,19 +170,20 @@ class RecordJobSystemd(recordjob.RecordJob):
                         jobs[jid]['ch'] = ch
                         jobs[jid]['name'] = name
                         jobs[jid]['queue'] = tuner
-
-                        # Thu 2018-05-24 01:34:50
                         jobs[jid]['rec_begin'] = datetime.strptime(
                             l.group(1), "%a %Y-%m-%d %H:%M:%S"
                         )
                 print(jobs)
-
                 """
-
 
         except (OSError, ValueError) as err:
             print('cannot get job information: ', err)
             return []
+
+        print(jobs)
+        for i in jobs.keys():
+            for k, v in jobs[i].items():
+                print(k, ':', v)
 
         return []
 
