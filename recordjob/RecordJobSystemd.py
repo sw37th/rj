@@ -116,26 +116,80 @@ class RecordJobSystemd(recordjob.RecordJob):
 
         return jobinfo
 
-    def get_systemd_job_info(self, target_jid=None):
+    def get_systemd_job_info(self, unit='RJ.*'):
         """
-        systemctl --user --all --no-pager show 'RJ.*.timer' の出力を
+        ジョブ毎のtimerユニット/serviceユニット情報を取得し、
+        補足情報を追加して配列に詰めて返す
+        """
+        jobinfo = {}
+
+        # timerユニット情報を取得
+        jobs = self._systemctl_show(unit + '.timer')
+        for i in jobs:
+            name = i.get('Names')
+            name = name.rsplit('.', 1)[0]
+            rec_begin = i.get('NextElapseUSecRealtime')
+
+            jobinfo[name] = {'timer': i}
+
+            # 開始時刻のdatetimeオブジェクトを追加
+            jobinfo[name]['rec_begin'] = datetime.strptime(
+                # WDY YYYY-MM-DD HH:MM:SS TZN
+                rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
+            )
+            # 終了時刻のdatetimeオブジェクトを追加
+            #FIXME
+
+        # serviceユニット情報を取得
+        jobs = self._systemctl_show(unit + '.service')
+        for i in jobs:
+            name = i.get('Names')
+            name = name.rsplit('.', 1)[0]
+            # timerユニットとserviseユニットはペアで存在するはず
+            if name not in jobinfo:
+                print(name + '.timer not exist. skiped.')
+                continue
+
+            jobinfo[name]['service'] = i
+
+            # チャンネルを追加
+            #FIXME
+
+            # キューを追加
+            #FIXME
+
+        # DEBUG
+        for i in jobinfo.keys():
+            print('### timer')
+            for k, v in jobinfo[i]['timer'].items():
+                print(k, ':', v)
+            print('### service')
+            for k, v in jobinfo[i]['service'].items():
+                print(k, ':', v)
+            print()
+
+        # 開始時間で昇順にソート
+        job_array = sorted(jobinfo.items(), key=lambda x:x[1]['rec_begin'])
+
+        # DEBUG
+        for i in job_array:
+            print(i[0])
+
+        return job_array
+
+
+    def _systemctl_show(self, unit):
+        """
+        systemctl --user --all --no-pager showの出力を
         ジョブ毎にDictにまとめ、配列に詰めて返す
         """
-
-        if not target_jid:
-            target_jid = 'RJ.*.timer'
-
-        self.systemctlshow.append(target_jid)
-        print(self.systemctlshow)
-
-        jobs = {}
+        command = self.systemctlshow
+        command.append(unit)
+        jobarr = []
         try:
-            with Popen(self.systemctlshow,
-                universal_newlines=True,
-                stdout=PIPE,
-                stderr=STDOUT,
+            with Popen(
+                command, universal_newlines=True, stdout=PIPE, stderr=STDOUT,
             ) as J:
-                jobarr = []
                 job = {}
                 for i in J.stdout:
                     i = i.strip()
@@ -146,44 +200,10 @@ class RecordJobSystemd(recordjob.RecordJob):
                     k, v = i.split('=', 1)
                     job[k] = v
                 # append last job
-                jobarr.append(job)
-
-                for i in jobarr:
-                    rec_begin = i.get('NextElapseUSecRealtime')
-                    # Thu 2018-05-24 01:34:50 JST
-                    i['rec_begin'] = datetime.strptime(
-                        rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
-                    )
-                    jobs[i.get('Unit')] = i
-
-                """
-                    l = re.match(re_line, i)
-                    if l:
-                        jid = l.group(2)
-                        jobs[jid] = {}
-
-                        j = re.match(re_job, jid)
-                        if not j:
-                            continue
-
-                        ch, name, tuner = j.group(1, 2, 4)
-                        jobs[jid]['ch'] = ch
-                        jobs[jid]['name'] = name
-                        jobs[jid]['queue'] = tuner
-                        jobs[jid]['rec_begin'] = datetime.strptime(
-                            l.group(1), "%a %Y-%m-%d %H:%M:%S"
-                        )
-                print(jobs)
-                """
-
+                if job:
+                    jobarr.append(job)
         except (OSError, ValueError) as err:
             print('cannot get job information: ', err)
             return []
 
-        print(jobs)
-        for i in jobs.keys():
-            for k, v in jobs[i].items():
-                print(k, ':', v)
-
-        return []
-
+        return jobarr
