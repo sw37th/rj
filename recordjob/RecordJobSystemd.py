@@ -1,27 +1,47 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime, timedelta
-from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
-import re
+from subprocess import run, Popen, PIPE, STDOUT, CalledProcessError
 import recordjob
-
-# Systemd commands
-systemctl_path = '/bin/systemctl'
-systemdrun_path = '/usr/bin/systemd-run'
 
 class RecordJobSystemd(recordjob.RecordJob):
     def __init__(self):
         super().__init__()
-        self.sytemctl = systemctl_path
-        self.systemdrun = systemdrun_path
+        self.name = 'RecordJobSystemd'
+        self.suffix = 'RJ'
+        self.unitdir = '/home/autumn/.config/systemd/user'
+        self.systemctl = 'systemctl'
+        self.systemctlstart = [
+            self.systemctl,
+            '--user',
+            'start',
+        ]
         self.systemctlshow = [
-            systemctl_path,
+            self.systemctl,
             '--user',
             '--all',
             '--no-pager',
             'show',
         ]
-        self.name = 'RecordJobSystemd'
+        self.recpt1 = [self.recpt1_path, '--b25', '--strip']
+        self.template_timer = """# created programmatically via rj. Do not edit.
+[Unit]
+Description={_suffix}: timer unit for {_title}
+CollectMode=inactive-or-failed
+
+[Timer]
+AccuracySec=1s
+OnCalendar={_begin}
+RemainAfterElapse=no
+"""
+        self.template_service = """# created programmatically via rj. Do not edit.
+[Unit]
+Description={_suffix}: service unit for {_title}
+
+[Service]
+Environment="RJ_ch={_ch}" "RJ_walltime={_walltime}"
+ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}.`date +%%Y%%m%%d_%%H%%M.%%S`.$$$.ts"
+"""
 
     def __str__(self):
         return self.name
@@ -34,70 +54,59 @@ class RecordJobSystemd(recordjob.RecordJob):
         if int(ch) < 100:
             # for terrestrial television
             tuner = 'tt'
-            lnb = ''
         else:
             # for broadcasting satellite
             tuner = 'bs'
-            lnb = '--lnb 15'
+            self.recpt1.append('--lnb 15')
 
-        tsfile = self.recdir + '/{}.{}.`date +%Y%m%d_%H%M.%S`.$$$.ts'.format(
+
+        # RJ.211.goldenkamui.20180529005950.bs.service
+        unit = '{}.{}.{}.{}.{}'.format(
+            self.suffix,
+            ch,
             title,
-            ch,
+            begin.strftime('%Y%m%d%H%M%S'),
+            tuner,
         )
+        unit_timer = unit + '.timer'
+        unit_service = unit + '.service'
 
-        # ジョブコマンド作成
-        c = [
-            self.recpt1_path,
-            '--b25',
-            '--strip',
-            ch,
-            str(int(rectime.total_seconds())),
-            tsfile,
-        ]
-        if lnb:
-            c.insert(1, lnb)
-        command = ' '.join(c)
-
-        # systemd.timer登録用コマンド作成
-        at = begin.strftime('%Y-%m-%d %H:%M:%S')
-        timer_date = "--on-calendar={}".format(at)
-        timer_name = "--unit=RJ.{}.{}.{}.{}".format(
-            ch, title, begin.strftime('%Y%m%d%H%M%S'), tuner)
-        timer = [
-            self.systemdrun,
-            '--user',
-            '--collect',
-            '--timer-property=AccuracySec=1s',
-            timer_date,
-            timer_name,
-            '/bin/bash',
-            '-c',
-            command
-        ]
-
-        # systemd.timer登録
         try:
-            with Popen(
-                timer,
-                universal_newlines=True,
-                stdout=PIPE,
-                stderr=STDOUT
-            ) as submit:
-                # waiting for complete of job submit
-                submit.wait(timeout=self.comm_timeout)
-                stdout_data = submit.communicate()[0]
-                if stdout_data:
-                    re_jid = re.compile('Running timer as unit: (.*)')
-                    m =  re.match(re_jid, stdout_data)
-                    if m:
-                        jid = m.group(1)
-                    else:
-                        print(stdout_data)
-        except (OSError, ValueError, TimeoutExpired) as err:
+            # timerユニットファイル作成
+            with open(self.unitdir + '/' + unit_timer, 'w') as f:
+                f.write(
+                    self.template_timer.format(
+                        _suffix=self.suffix,
+                        _title=title,
+                        _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+                    )
+                )
+            # serviceユニットファイル作成
+            with open(self.unitdir + '/' + unit_service, 'w') as f:
+                output = self.recdir + '/{}.{}'.format(title, ch)
+                f.write(
+                    self.template_service.format(
+                        _suffix=self.suffix,
+                        _title=title,
+                        _ch=ch,
+                        _walltime=str(int(rectime.total_seconds())),
+                        _recpt1=' '.join(self.recpt1),
+                        _output=output,
+                    )
+                )
+        except (PermissionError, FileNotFoundError) as err:
+            print('cannot create unit file:', err)
+            return ''
+
+        # timer開始
+        self.systemctlstart.append(unit_timer)
+        try:
+           run(self.systemctlstart, check=True)
+        except (CalledProcessError) as err:
             print('cannot submit job:', err)
+            return ''
 
-        return jid
-
+        return unit
 
     def get_job_info(self, date=None, jid=None):
         """
@@ -116,12 +125,16 @@ class RecordJobSystemd(recordjob.RecordJob):
 
         return jobinfo
 
-    def get_systemd_job_info(self, unit='RJ.*'):
+    def get_systemd_job_info(self, unit=None):
         """
         ジョブ毎のtimerユニット/serviceユニット情報を取得し、
         補足情報を追加して配列に詰めて返す
         """
         jobinfo = {}
+
+        if not unit:
+            # wildcard unit
+            unit = self.suffix + '.*'
 
         # timerユニット情報を取得
         jobs = self._systemctl_show(unit + '.timer')
@@ -176,7 +189,6 @@ class RecordJobSystemd(recordjob.RecordJob):
             print(i[0])
 
         return job_array
-
 
     def _systemctl_show(self, unit):
         """
