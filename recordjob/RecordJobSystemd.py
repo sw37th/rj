@@ -2,14 +2,16 @@
 
 from datetime import datetime, timedelta
 from subprocess import run, Popen, PIPE, STDOUT, CalledProcessError
+import os
 import recordjob
+import sys
 
 class RecordJobSystemd(recordjob.RecordJob):
     def __init__(self):
         super().__init__()
         self.name = 'RecordJobSystemd'
         self.suffix = 'RJ'
-        self.unitdir = '/home/autumn/.config/systemd/user'
+        self.unitdir = os.path.expanduser('~') + '/.config/systemd/user'
         self.systemctl = 'systemctl'
         self.systemctlstart = [
             self.systemctl,
@@ -113,7 +115,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         録画ジョブ情報を取得して配列として返す
         """
 
-        jobinfo = self._get_torque_job_info(jid)
+        jobinfo = self._get_systemd_job_info(jid)
 
         if date:
             # dateで指定された日のジョブのみを配列に詰め直す
@@ -125,12 +127,13 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobinfo
 
-    def get_systemd_job_info(self, unit=None):
+    def _get_systemd_job_info(self, unit=None):
         """
         ジョブ毎のtimerユニット/serviceユニット情報を取得し、
         補足情報を追加して配列に詰めて返す
         """
         jobinfo = {}
+        jobarray = []
 
         if not unit:
             # wildcard unit
@@ -156,6 +159,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         # serviceユニット情報を取得
         jobs = self._systemctl_show(unit + '.service')
         for i in jobs:
+            print('----------------------------------------------------')
+            print(i)
             name = i.get('Names')
             name = name.rsplit('.', 1)[0]
             # timerユニットとserviseユニットはペアで存在するはず
@@ -167,28 +172,35 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
             # チャンネルを追加
             #FIXME
+            #print(i.get('Names'))
+            #ch, walltime = jobinfo[name]['service'].get('Environment').split()
+            #ch = ch.split('=')[1]
+            #walltime = walltime.split('=')[1]
+            #jobinfo[name]['channel'] = ch
+            #print(ch)
+            #print(walltime)
 
             # キューを追加
             #FIXME
 
         # DEBUG
-        for i in jobinfo.keys():
-            print('### timer')
-            for k, v in jobinfo[i]['timer'].items():
-                print(k, ':', v)
-            print('### service')
-            for k, v in jobinfo[i]['service'].items():
-                print(k, ':', v)
-            print()
+        #for i in jobinfo.keys():
+        #    print('### timer')
+        #    for k, v in jobinfo[i]['timer'].items():
+        #        print(k, ':', v)
+        #    print('### service')
+        #    for k, v in jobinfo[i]['service'].items():
+        #        print(k, ':', v)
+        #    print()
 
         # 開始時間で昇順にソート
-        job_array = sorted(jobinfo.items(), key=lambda x:x[1]['rec_begin'])
+        jobarray = [
+            jobinfo[k] for k, v in sorted(
+                jobinfo.items(), key=lambda x:x[1]['rec_begin']
+            )
+        ]
 
-        # DEBUG
-        for i in job_array:
-            print(i[0])
-
-        return job_array
+        return jobarray
 
     def _systemctl_show(self, unit):
         """
