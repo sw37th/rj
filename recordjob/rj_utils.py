@@ -27,11 +27,10 @@ def parse_channel(s_ch):
 
 def parse_time(s_time):
     """
-    'HH:MM:SS' or 'HH:MM' or 秒数 or 'now'を引数として受け取り、
+    'HH:MM:SS' or 'HH:MM' or 秒数を引数として受け取り、
     当日00:00:00からの差分としてtimedeltaオブジェクトとして返す
     """
     re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
-    re_now = re.compile(r'now', re.I)
     time = None
 
     if re.match(re_time, s_time):
@@ -43,11 +42,6 @@ def parse_time(s_time):
             time = timedelta(seconds=(t[0] * 3600) + (t[1] * 60))
         elif len(t) == 1:
             time = timedelta(seconds=t[0])
-    elif re.match(re_now, s_time):
-        # 'now'
-        n = datetime.now()
-        n_sec = (n.hour * 3600) + (n.minute * 60) + n.second
-        time = timedelta(seconds=n_sec, microseconds=n.microsecond)
 
     return time
 
@@ -84,7 +78,11 @@ def parse_date(s_date, dateline=0):
     re_plus = re.compile(r'^\+(\d+)d$', re.I)
     date = None
 
-    n = datetime.now()
+    current = datetime.now()
+    if current.hour < dateline:
+        # 現在時刻が基準時刻未満の場合は前日とみなす
+        # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
+        current -= timedelta(days=1)
 
     try:
         if re.match(re_wday, s_date):
@@ -98,11 +96,23 @@ def parse_date(s_date, dateline=0):
                 'sat': 5,
                 'sun': 6,
             }
-            offset = wdaynum.get(s_date.lower()) - n.weekday()
+            offset = wdaynum.get(s_date.lower()) - current.weekday()
+
+            # ex) 日曜日の25:00(月曜日の1:00)に「日曜日26:00開始」の
+            #     録画予約を入れるとした場合
+            if current.hour < dateline and offset == 1:
+                # 現在時刻がdateline時までは当日扱いとする。
+                offset = 0
+
             if offset < 0:
                 # next week
                 offset += 7
-            date = datetime(n.year, n.month, n.day) + timedelta(days=offset)
+
+            date = (
+                datetime(
+                    current.year, current.month, current.day
+                ) + timedelta(days=offset)
+            )
 
         elif re.match(re_date, s_date):
             # YYYY/MM/DD or MM/DD or DD
@@ -111,36 +121,30 @@ def parse_date(s_date, dateline=0):
                 year, month, day = map(int, d)
             elif len(d) == 2:
                 month, day = map(int, d)
-                year = n.year
+                year = current.year
             else:
                 day = int(d[0])
-                year = n.year
-                month = n.month
+                year = current.year
+                month = current.month
             date = datetime(year, month, day)
 
         elif re.match(re_today, s_date):
             # today
-            date = datetime(n.year, n.month, n.day)
-            if n.hour < dateline:
-                # 現在時刻が基準時刻未満の場合は前日とみなす
-                # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
-                date -= timedelta(days=1)
+            date = datetime(current.year, current.month, current.day)
 
         elif re.match(re_plus, s_date):
             # +n day
             offset = int(re.match(re_plus, s_date).group(1))
-            date = datetime(n.year, n.month, n.day) + timedelta(days=offset)
-            if n.hour < dateline:
-                # 現在時刻が基準時刻未満の場合は前日とみなす
-                # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
-                date -= timedelta(days=1)
+            date = (
+                datetime(
+                    current.year,
+                    current.month,
+                    current.day
+                ) + timedelta(days=offset)
+            )
 
     except ValueError:
         pass
-
-    if date:
-        # 当日の基準時刻を修正する
-        date += timedelta(seconds=(dateline * 3600))
 
     return date
 
@@ -195,14 +199,29 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
         chnum = int(j.get('channel'))
         chname = chinfo.get(chnum, '')
         s_elapse = ''
+        s_walltime = ''
+
+        # Walltimeを取得
+        # FIXME:
+        # Torque環境は'Resource_List.walltime'属性を使用していたため
+        # 'walltime'属性が未実装
+        walltime = j.get('walltime')
+        if walltime:
+            walltime = walltime.total_seconds() 
+            s_walltime = '{:02}:{:02}:{:02}'.format(
+                int(walltime / 3600),
+                int(walltime % 3600 / 60),
+                int(walltime % 60),
+            )
 
         # 実行中のジョブの経過時間を取得
         elapse = j.get('elapse')
         if elapse:
             s_elapse = '{:02}:{:02}:{:02}'.format(
-                int(elapse / 3600),
-                int(elapse / 60),
-                int(elapse % 60))
+                int(elapse.total_seconds() / 3600),
+                int(elapse.total_seconds() % 3600 / 60),
+                int(elapse.total_seconds() % 60),
+            )
 
         # ジョブの状態を取得
         state = j.get('record_state', '')
@@ -214,14 +233,14 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
 
         print(
             '{:5} {:>3} {:10} {:24} {} {} {:8} {:5} {} {}'.format(
-                j.get('JID'),
+                j.get('rj_id', ''),
                 chnum,
                 chname,
-                j.get('title'),
+                j.get('rj_title', ''),
                 starttime,
-                j.get('Resource_List.walltime'),
-                j.get('euser'),
-                j.get('queue'),
+                s_walltime,
+                j.get('user', ''),
+                j.get('tuner', ''),
                 state,
                 s_elapse,
             )
