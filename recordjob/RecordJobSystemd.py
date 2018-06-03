@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from subprocess import run, Popen, PIPE, STDOUT, CalledProcessError
+import hashlib
 import os
 import recordjob
 import sys
@@ -10,7 +11,7 @@ class RecordJobSystemd(recordjob.RecordJob):
     def __init__(self):
         super().__init__()
         self.name = 'RecordJobSystemd'
-        self.suffix = 'RJ'
+        self.prefix = 'RJ'
         self.unitdir = os.path.expanduser('~') + '/.config/systemd/user'
         self.systemctl = 'systemctl'
         self.systemctlstart = [
@@ -24,6 +25,13 @@ class RecordJobSystemd(recordjob.RecordJob):
             '--all',
             '--no-pager',
             'show',
+        ]
+        self.systemctlshowenv = [
+            self.systemctl,
+            '--user',
+            '--all',
+            '--no-pager',
+            'show-environment',
         ]
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.template_timer = """# created programmatically via rj. Do not edit.
@@ -64,7 +72,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         # RJ.211.goldenkamui.20180529005950.bs.service
         unit = '{}.{}.{}.{}.{}'.format(
-            self.suffix,
+            self.prefix,
             ch,
             title,
             begin.strftime('%Y%m%d%H%M%S'),
@@ -78,7 +86,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             with open(self.unitdir + '/' + unit_timer, 'w') as f:
                 f.write(
                     self.template_timer.format(
-                        _suffix=self.suffix,
+                        _suffix=self.prefix,
                         _title=title,
                         _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
                     )
@@ -88,7 +96,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 output = self.recdir + '/{}.{}'.format(title, ch)
                 f.write(
                     self.template_service.format(
-                        _suffix=self.suffix,
+                        _suffix=self.prefix,
                         _title=title,
                         _ch=ch,
                         _walltime=str(int(rectime.total_seconds())),
@@ -138,7 +146,10 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         if not unit:
             # wildcard unit
-            unit = self.suffix + '.*'
+            unit = self.prefix + '.*'
+
+        # 環境変数を取得
+        user_env = self._systemctl_show(None, showenv=True)[0]
 
         # ユニット情報を取得
         jobs = self._systemctl_show(unit)
@@ -148,11 +159,18 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
             if name not in jobinfo:
                 jobinfo[name] = {}
-                jobinfo[name]['queue'] = name.rsplit('.', 1)[1]
+                jobinfo[name]['tuner'] = name.rsplit('.', 1)[1]
 
             jobinfo[name][suffix] = i
 
-            rec_begin = i.get('NextElapseUSecRealtime')
+        # ユニット情報から録画管理に必要な情報を取得、追加
+        for name in jobinfo.keys():
+            # 録画開始時刻
+            rec_begin = jobinfo[name]['timer'].get('NextElapseUSecRealtime')
+            if not rec_begin:
+                # ジョブ実行中(録画中)
+                rec_begin = jobinfo[name]['timer'].get('LastTriggerUSec')
+
             if rec_begin:
                 # 開始時刻のdatetimeオブジェクトを追加
                 jobinfo[name]['rec_begin'] = datetime.strptime(
@@ -163,8 +181,10 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                     # 録画中
                     elapse = current - jobinfo[name]['rec_begin']
                     jobinfo[name]['elapse'] = elapse
+                    jobinfo[name]['record_state'] = 'Recording'
 
-            rec_env = i.get('Environment')
+            # チャンネル、録画時間、録画終了時刻
+            rec_env = jobinfo[name]['service'].get('Environment')
             if rec_env:
                 ch, walltime = rec_env.split()
                 ch = ch.split('=')[1]
@@ -175,17 +195,24 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 jobinfo[name]['rec_end'] = (
                     jobinfo[name]['rec_begin'] + jobinfo[name]['walltime'] 
                 )
+            jobinfo[name]['user'] = user_env.get('USER')
+            title = name.rsplit('.', 2)[0]
+            jobinfo[name]['rj_title'] = title.split('.', 2)[2]
+            jobinfo[name]['rj_id_long'] = hashlib.sha256(
+                name.encode('utf-8')
+            ).hexdigest()
+            jobinfo[name]['rj_id'] = jobinfo[name]['rj_id_long'][0:5]
 
         # DEBUG
-        for i in jobinfo.keys():
-            print(i)
-            print('### timer')
-            for k, v in jobinfo[i]['timer'].items():
-                print(k, ':', v)
-            print('### service')
-            for k, v in jobinfo[i]['service'].items():
-                print(k, ':', v)
-            print()
+        #for i in jobinfo.keys():
+        #    print(i)
+        #    print('### timer')
+        #    for k, v in jobinfo[i]['timer'].items():
+        #        print(k, ':', v)
+        #    print('### service')
+        #    for k, v in jobinfo[i]['service'].items():
+        #        print(k, ':', v)
+        #    print()
 
         # 開始時間で昇順にソート
         jobarray = [
@@ -196,16 +223,20 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobarray
 
-    def _systemctl_show(self, unit, timer=True, service=True):
+    def _systemctl_show(self, unit, timer=True, service=True, showenv=False):
         """
         systemctl --user --all --no-pager showの出力を
         ジョブ毎にDictにまとめ、配列に詰めて返す
         """
-        command = self.systemctlshow
-        if timer:
-            command.append(unit + '.timer')
-        if service:
-            command.append(unit + '.service')
+        if showenv:
+            command = self.systemctlshowenv
+        else:
+            command = self.systemctlshow
+            if timer:
+                command.append(unit + '.timer')
+            if service:
+                command.append(unit + '.service')
+
 
         jobarr = []
         try:
