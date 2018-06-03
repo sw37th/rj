@@ -15,13 +15,14 @@ Options:
 """
 
 from docopt import docopt
-from recordjob.RecordJobTorque import RecordJobTorque
+import importlib
+import recordjob
 import recordjob.rj_utils as rju
 import re
 
 # dateline_hour: 一日の基準時刻(時)
-# 当日の基準時刻から翌日の基準時刻までを同一日とみなす。
-# dateline_hour=5の場合、05:00-28:59が同一日。
+# 当日の基準時刻から翌日の基準時刻-1secまでを同一日とみなす。
+# dateline_hour=5の場合、05:00:00-28:59:59が同一日。
 dateline_hour = 5
 
 # wormup_sec: 録画開始のマージン
@@ -32,9 +33,14 @@ wormup_sec = 10
 # default_rectime: デフォルトの録画時間
 default_rectime = '00:29:30'
 
+#scheduler = "Torque"
+scheduler = "Systemd"
 args = docopt(__doc__)
 
-rec = RecordJobTorque()
+mdl = importlib.import_module('recordjob.RecordJob' + scheduler)
+cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
+rec = cls()
+
 chinfo = rec.get_channel_info().get('channel', {})
 
 def pj(jobinfo, header=None):
@@ -48,7 +54,9 @@ def pj(jobinfo, header=None):
 
 def check_start_time(date, time):
     try:
-        begin = rju.parse_date(date) + rju.parse_time(time)
+        begin = (
+            rju.parse_date(date, dateline=dateline_hour) + rju.parse_time(time)
+        )
     except TypeError:
         print("Invalid Date:", date, time)
         return None
