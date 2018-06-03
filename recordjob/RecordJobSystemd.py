@@ -134,64 +134,58 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         jobinfo = {}
         jobarray = []
+        current = datetime.now()
 
         if not unit:
             # wildcard unit
             unit = self.suffix + '.*'
 
-        # timerユニット情報を取得
-        jobs = self._systemctl_show(unit + '.timer')
+        # ユニット情報を取得
+        jobs = self._systemctl_show(unit)
         for i in jobs:
             name = i.get('Names')
-            name = name.rsplit('.', 1)[0]
-            rec_begin = i.get('NextElapseUSecRealtime')
+            name, suffix = name.rsplit('.', 1)
 
-            jobinfo[name] = {'timer': i}
-
-            # 開始時刻のdatetimeオブジェクトを追加
-            jobinfo[name]['rec_begin'] = datetime.strptime(
-                # WDY YYYY-MM-DD HH:MM:SS TZN
-                rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
-            )
-            # 終了時刻のdatetimeオブジェクトを追加
-            #FIXME
-
-        # serviceユニット情報を取得
-        jobs = self._systemctl_show(unit + '.service')
-        for i in jobs:
-            print('----------------------------------------------------')
-            print(i)
-            name = i.get('Names')
-            name = name.rsplit('.', 1)[0]
-            # timerユニットとserviseユニットはペアで存在するはず
             if name not in jobinfo:
-                print(name + '.timer not exist. skiped.')
-                continue
+                jobinfo[name] = {}
+                jobinfo[name]['queue'] = name.rsplit('.', 1)[1]
 
-            jobinfo[name]['service'] = i
+            jobinfo[name][suffix] = i
 
-            # チャンネルを追加
-            #FIXME
-            #print(i.get('Names'))
-            #ch, walltime = jobinfo[name]['service'].get('Environment').split()
-            #ch = ch.split('=')[1]
-            #walltime = walltime.split('=')[1]
-            #jobinfo[name]['channel'] = ch
-            #print(ch)
-            #print(walltime)
+            rec_begin = i.get('NextElapseUSecRealtime')
+            if rec_begin:
+                # 開始時刻のdatetimeオブジェクトを追加
+                jobinfo[name]['rec_begin'] = datetime.strptime(
+                    # WDY YYYY-MM-DD HH:MM:SS TZN
+                    rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
+                )
+                if jobinfo[name]['rec_begin'] < current:
+                    # 録画中
+                    elapse = current - jobinfo[name]['rec_begin']
+                    jobinfo[name]['elapse'] = elapse
 
-            # キューを追加
-            #FIXME
+            rec_env = i.get('Environment')
+            if rec_env:
+                ch, walltime = rec_env.split()
+                ch = ch.split('=')[1]
+                walltime = walltime.split('=')[1]
+
+                jobinfo[name]['channel'] = ch
+                jobinfo[name]['walltime'] = timedelta(seconds=int(walltime))
+                jobinfo[name]['rec_end'] = (
+                    jobinfo[name]['rec_begin'] + jobinfo[name]['walltime'] 
+                )
 
         # DEBUG
-        #for i in jobinfo.keys():
-        #    print('### timer')
-        #    for k, v in jobinfo[i]['timer'].items():
-        #        print(k, ':', v)
-        #    print('### service')
-        #    for k, v in jobinfo[i]['service'].items():
-        #        print(k, ':', v)
-        #    print()
+        for i in jobinfo.keys():
+            print(i)
+            print('### timer')
+            for k, v in jobinfo[i]['timer'].items():
+                print(k, ':', v)
+            print('### service')
+            for k, v in jobinfo[i]['service'].items():
+                print(k, ':', v)
+            print()
 
         # 開始時間で昇順にソート
         jobarray = [
@@ -202,13 +196,17 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobarray
 
-    def _systemctl_show(self, unit):
+    def _systemctl_show(self, unit, timer=True, service=True):
         """
         systemctl --user --all --no-pager showの出力を
         ジョブ毎にDictにまとめ、配列に詰めて返す
         """
         command = self.systemctlshow
-        command.append(unit)
+        if timer:
+            command.append(unit + '.timer')
+        if service:
+            command.append(unit + '.service')
+
         jobarr = []
         try:
             with Popen(
