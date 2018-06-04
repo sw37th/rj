@@ -116,16 +116,22 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             print('cannot submit job:', err)
             return ''
 
-        return unit
+        rj_id_long = hashlib.sha256(unit.encode('utf-8')).hexdigest()
+        return rj_id_long
 
     def get_job_info(self, date=None, jid=None):
         """
         録画ジョブ情報を取得して配列として返す
         """
 
-        jobinfo = self._get_systemd_job_info(jid)
+        jobinfo = self._get_systemd_job_info()
 
-        if date:
+        if jid:
+            if len(jid) == 5:
+                jobinfo = [i for i in jobinfo if i['rj_id'] == jid]
+            else:
+                jobinfo = [i for i in jobinfo if i['rj_id_long'] == jid]
+        elif date:
             # dateで指定された日のジョブのみを配列に詰め直す
             nextday = date + timedelta(days=1)
             jobinfo = [
@@ -135,18 +141,16 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobinfo
 
-    def _get_systemd_job_info(self, unit=None):
+    def _get_systemd_job_info(self):
         """
-        ジョブ毎のtimerユニット/serviceユニット情報を取得し、
+        全ジョブのtimerユニット/serviceユニット情報を取得し、
         補足情報を追加して配列に詰めて返す
         """
         jobinfo = {}
         jobarray = []
         current = datetime.now()
 
-        if not unit:
-            # wildcard unit
-            unit = self.prefix + '.*'
+        unit = self.prefix + '.*'
 
         # 環境変数を取得
         user_env = self._systemctl_show(None, showenv=True)[0]
