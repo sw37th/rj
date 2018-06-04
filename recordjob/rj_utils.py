@@ -148,24 +148,6 @@ def parse_date(s_date, dateline=0):
 
     return date
 
-def eval_dateline(time, dateline):
-    """
-    datetimeオブジェクトtimeに対し、datalineを加味した結果の
-    wday, mon, day, hourを返す
-    """
-    if time.hour >= dateline:
-        wday = time.strftime("%a")
-        mon  = int(time.strftime("%m"))
-        day  = int(time.strftime("%d"))
-        hour = int(time.strftime("%H"))
-    else:
-        # 24時以降、datelineまでを当日扱いに
-        wday = (time - timedelta(days=1)).strftime("%a")
-        mon = int((time - timedelta(days=1)).strftime("%m"))
-        day = int((time - timedelta(days=1)).strftime("%d"))
-        hour = int(time.strftime("%H")) + 24
-    return (wday, mon, day, hour)
-
 def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
     """
     ジョブの配列を受け取り一覧表示する
@@ -173,55 +155,45 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
     if header:
         print(header)
     else:
-        print('ID    Ch             Title                    Start           walltime user     queue')
+        print(
+            'ID    Ch             Title                    ' + 
+            'Start           walltime user     queue'
+        )
 
     prev_wday = ''
     for j in jobinfo:
         # 表示用に録画開始時刻マージン分を加算
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
 
-        wday, mon, day, hour = eval_dateline(begin, dateline)
-
         # ジョブ開始時刻
-        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}'.format(
-            wday,
-            mon,
-            day,
-            hour,
-            begin.minute)
+        starttime = str_w_ymd_hms(begin, dateline)
+        wday = starttime.split()[0]
 
         if wday != prev_wday:
-            print('----- -------------- ------------------------ --------------- -------- -------- -----')
+            print(
+                '----- -------------- ------------------------ ' +
+                '--------------- -------- -------- -----'
+            )
 
         prev_wday = wday
 
         # ジョブのチャンネル番号を元に対応する局名を取得
         chnum = int(j.get('channel'))
         chname = chinfo.get(chnum, '')
-        s_elapse = ''
-        s_walltime = ''
 
         # Walltimeを取得
-        # FIXME:
-        # Torque環境は'Resource_List.walltime'属性を使用していたため
-        # 'walltime'属性が未実装
         walltime = j.get('walltime')
         if walltime:
-            walltime = walltime.total_seconds() 
-            s_walltime = '{:02}:{:02}:{:02}'.format(
-                int(walltime / 3600),
-                int(walltime % 3600 / 60),
-                int(walltime % 60),
-            )
+            s_walltime = strhms(walltime.total_seconds())
+        else:
+            s_walltime = ''
 
         # 実行中のジョブの経過時間を取得
         elapse = j.get('elapse')
         if elapse:
-            s_elapse = '{:02}:{:02}:{:02}'.format(
-                int(elapse.total_seconds() / 3600),
-                int(elapse.total_seconds() % 3600 / 60),
-                int(elapse.total_seconds() % 60),
-            )
+            s_elapse = strhms(elapse.total_seconds())
+        else:
+            s_elapse = ''
 
         # ジョブの状態を取得
         state = j.get('record_state', '')
@@ -255,54 +227,94 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
         end = j.get('rec_end') + timedelta(seconds=wormup)
 
-        b_wday, b_mon, b_day, b_hour = eval_dateline(begin, dateline)
-        e_wday, e_mon, e_day, e_hour = eval_dateline(begin, dateline)
-
         # ジョブ開始時刻
-        starttime = '{} {:>2}/{:<2} {:0>2}:{:0>2}:{:0>2}'.format(
-            b_wday,
-            b_mon,
-            b_day,
-            b_hour,
-            begin.minute,
-            begin.second)
+        starttime = str_w_ymd_hms(begin, dateline, year=True, sec=True)
 
         # ジョブ終了時刻
-        endtime = '{} {:>2}/{:<2} {:0>2}:{:0>2}:{:0>2}'.format(
-            e_wday,
-            e_mon,
-            e_day,
-            e_hour,
-            end.minute,
-            end.second)
+        endtime = str_w_ymd_hms(end, dateline, year=True, sec=True)
 
+        # Walltimeを取得
+        walltime = j.get('walltime')
+        if walltime:
+            s_walltime = strhms(walltime.total_seconds())
+        else:
+            s_walltime = None
+
+        # チャンネル番号と局名を取得
         chnum = int(j.get('channel'))
         chname = chinfo.get(chnum, '')
-        s_elapse = None
 
         # 実行中のジョブの経過時間を取得
         elapse = j.get('elapse')
         if elapse:
-            s_elapse = '{:02}:{:02}:{:02}'.format(
-                int(elapse / 3600),
-                int(elapse / 60),
-                int(elapse % 60))
+            s_elapse = strhms(elapse.total_seconds())
+        else:
+            s_elapse = None
 
-
-        print('Title:', j.get('title'))
-        print('  Job Id:          ', j.get('JID'))
+        print('Title:', j.get('rj_title'))
+        print('  Job Id:          ', j.get('rj_id'))
         print('  Channel number:  ', chnum)
         print('  Channel name:    ', chname)
         print('  Start:           ', starttime)
         print('  End:             ', endtime)
-        print('  Walltime:        ', j.get('Resource_List.walltime'))
+        print('  Walltime:        ', s_walltime)
         print('  Elapse time:     ', s_elapse)
+        print('  Owner:           ', j.get('user'))
+        print('  Group:           ', j.get('group'))
+        print('  Tuner:           ', j.get('tuner'))
+        print('  State:           ', j.get('record_state'))
+        print('  Alert:           ', j.get('alert'))
         print('  Job execute time:', j.get('Execution_Time'))
         print('  Job create time: ', j.get('ctime'))
         print('  Job modify time: ', j.get('mtime'))
         print('  Execute host:    ', j.get('exec_host'))
-        print('  Owner:           ', j.get('euser'))
-        print('  Group:           ', j.get('egroup'))
-        print('  Queue:           ', j.get('queue'))
-        print('  State:           ', j.get('record_state'))
-        print('  Alert:           ', j.get('alert'))
+
+def strhms(sec):
+    """
+    秒数を受け取ってHH:MM:SS形式の文字列を返す
+    """
+    hms = '{:02}:{:02}:{:02}'.format(
+        int(sec / 3600),
+        int(sec % 3600 / 60),
+        int(sec % 60),
+    )
+    return hms
+
+def str_w_ymd_hms(time, dateline=0, year=False, sec=False):
+    """
+    datetimeオブジェクトとdatelineを受け取り
+    datelineを加味した"Wday yyyy/mm/dd HH:MM:SS"を返す
+    """
+    _wday, _year, _mon, _day, _hour = eval_dateline(time, dateline)
+
+    if year:
+        w_ymd = '{} {:0>4}/{:0>2}/{:0>2}'.format(_wday, _year, _mon, _day)
+    else:
+        w_ymd = '{} {:>2}/{:<2}'.format(_wday, _mon, _day)
+
+    if sec:
+        hms = '{:0>2}:{:0>2}:{:0>2}'.format(_hour, time.minute, time.second)
+    else:
+        hms = '{:0>2}:{:0>2}'.format(_hour, time.minute)
+
+    return w_ymd + ' ' + hms
+
+def eval_dateline(time, dateline):
+    """
+    datetimeオブジェクトtimeに対し、datalineを加味した結果の
+    wday, year, mon, day, hourを返す
+    """
+    if time.hour >= dateline:
+        wday = time.strftime("%a")
+        year = int(time.strftime("%Y"))
+        mon  = int(time.strftime("%m"))
+        day  = int(time.strftime("%d"))
+        hour = int(time.strftime("%H"))
+    else:
+        # 24時以降、datelineまでを当日扱いに
+        wday = (time - timedelta(days=1)).strftime("%a")
+        year = int((time - timedelta(days=1)).strftime("%Y"))
+        mon  = int((time - timedelta(days=1)).strftime("%m"))
+        day  = int((time - timedelta(days=1)).strftime("%d"))
+        hour = int(time.strftime("%H")) + 24
+    return (wday, year, mon, day, hour)
