@@ -127,7 +127,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         jobinfo = self._get_systemd_job_info()
 
         if jid:
-            if len(jid) == 5:
+            if len(jid) == 8:
                 jobinfo = [i for i in jobinfo if i['rj_id'] == jid]
             else:
                 jobinfo = [i for i in jobinfo if i['rj_id_long'] == jid]
@@ -205,7 +205,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             jobinfo[name]['rj_id_long'] = hashlib.sha256(
                 name.encode('utf-8')
             ).hexdigest()
-            jobinfo[name]['rj_id'] = jobinfo[name]['rj_id_long'][0:5]
+            jobinfo[name]['rj_id'] = jobinfo[name]['rj_id_long'][0:8]
 
         # DEBUG
         #for i in jobinfo.keys():

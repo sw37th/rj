@@ -156,8 +156,8 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
         print(header)
     else:
         print(
-            'ID    Ch             Title                    ' + 
-            'Start           walltime user     queue'
+            'ID       Ch             Title                    ' + 
+            'Start           walltime tuner'
         )
 
     prev_wday = ''
@@ -171,8 +171,8 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
 
         if wday != prev_wday:
             print(
-                '----- -------------- ------------------------ ' +
-                '--------------- -------- -------- -----'
+                '-------- -------------- ------------------------ ' +
+                '--------------- -------- -----'
             )
 
         prev_wday = wday
@@ -204,14 +204,13 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
             state = ' '.join((j.get('alert'), state))
 
         print(
-            '{:5} {:>3} {:10} {:24} {} {} {:8} {:5} {} {}'.format(
+            '{:8} {:>3} {:10} {:24} {} {} {:5} {} {}'.format(
                 j.get('rj_id', ''),
                 chnum,
                 chname,
                 j.get('rj_title', ''),
                 starttime,
                 s_walltime,
-                j.get('user', ''),
                 j.get('tuner', ''),
                 state,
                 s_elapse,
