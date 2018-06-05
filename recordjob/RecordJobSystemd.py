@@ -47,6 +47,7 @@ RemainAfterElapse=no
         self.template_service = """# created programmatically via rj. Do not edit.
 [Unit]
 Description={_suffix}: service unit for {_title}
+CollectMode=inactive-or-failed
 
 [Service]
 Environment="RJ_ch={_ch}" "RJ_walltime={_walltime}"
@@ -121,18 +122,19 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
     def get_job_info(self, date=None, jid=None):
         """
-        録画ジョブ情報を取得して配列として返す
+        録画ジョブ情報を取得して返す
         """
 
         jobinfo = self._get_systemd_job_info()
 
         if jid:
+            # 指定のIDのジョブのみ抽出
             if len(jid) == 8:
                 jobinfo = [i for i in jobinfo if i['rj_id'] == jid]
             else:
                 jobinfo = [i for i in jobinfo if i['rj_id_long'] == jid]
         elif date:
-            # dateで指定された日のジョブのみを配列に詰め直す
+            # dateで指定された日のジョブのみ抽出
             nextday = date + timedelta(days=1)
             jobinfo = [
                 i for i in jobinfo
@@ -146,7 +148,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         全ジョブのtimerユニット/serviceユニット情報を取得し、
         補足情報を追加して配列に詰めて返す
         """
-        jobinfo = {}
+        job = {}
         jobarray = []
         current = datetime.now()
 
@@ -156,72 +158,82 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         user_env = self._systemctl_show(None, showenv=True)[0]
 
         # ユニット情報を取得
-        jobs = self._systemctl_show(unit)
-        for i in jobs:
+        for i in self._systemctl_show(unit):
             name = i.get('Names')
             name, suffix = name.rsplit('.', 1)
 
-            if name not in jobinfo:
-                jobinfo[name] = {}
-                jobinfo[name]['tuner'] = name.rsplit('.', 1)[1]
+            if name not in job:
+                job[name] = {}
+                job[name]['tuner'] = name.rsplit('.', 1)[1]
 
-            jobinfo[name][suffix] = i
+            job[name][suffix] = i
 
         # ユニット情報から録画管理に必要な情報を取得、追加
-        for name in jobinfo.keys():
+        for name in list(job.keys()):
+            # timerユニット情報、serviceユニット情報の
+            # どちらか一方しかないジョブは削除する
+            if 'timer' not in job[name]:
+                print(job[name]['service'].get('Names'), 'is orphaned')
+                del job[name]
+                continue
+            if 'service' not in job[name]:
+                print(job[name]['timer'].get('Names'), 'is orphaned')
+                del job[name]
+                continue
+
             # 録画開始時刻
-            rec_begin = jobinfo[name]['timer'].get('NextElapseUSecRealtime')
+            rec_begin = job[name]['timer'].get('NextElapseUSecRealtime')
             if not rec_begin:
                 # ジョブ実行中(録画中)
-                rec_begin = jobinfo[name]['timer'].get('LastTriggerUSec')
+                rec_begin = job[name]['timer'].get('LastTriggerUSec')
 
             if rec_begin:
                 # 開始時刻のdatetimeオブジェクトを追加
-                jobinfo[name]['rec_begin'] = datetime.strptime(
+                job[name]['rec_begin'] = datetime.strptime(
                     # WDY YYYY-MM-DD HH:MM:SS TZN
                     rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
                 )
-                if jobinfo[name]['rec_begin'] < current:
+                if job[name]['rec_begin'] < current:
                     # 録画中
-                    elapse = current - jobinfo[name]['rec_begin']
-                    jobinfo[name]['elapse'] = elapse
-                    jobinfo[name]['record_state'] = 'Recording'
+                    elapse = current - job[name]['rec_begin']
+                    job[name]['elapse'] = elapse
+                    job[name]['record_state'] = 'Recording'
 
             # チャンネル、録画時間、録画終了時刻
-            rec_env = jobinfo[name]['service'].get('Environment')
+            rec_env = job[name]['service'].get('Environment')
             if rec_env:
                 ch, walltime = rec_env.split()
                 ch = ch.split('=')[1]
                 walltime = walltime.split('=')[1]
 
-                jobinfo[name]['channel'] = ch
-                jobinfo[name]['walltime'] = timedelta(seconds=int(walltime))
-                jobinfo[name]['rec_end'] = (
-                    jobinfo[name]['rec_begin'] + jobinfo[name]['walltime'] 
+                job[name]['channel'] = ch
+                job[name]['walltime'] = timedelta(seconds=int(walltime))
+                job[name]['rec_end'] = (
+                    job[name]['rec_begin'] + job[name]['walltime'] 
                 )
-            jobinfo[name]['user'] = user_env.get('USER')
+            job[name]['user'] = user_env.get('USER')
             title = name.rsplit('.', 2)[0]
-            jobinfo[name]['rj_title'] = title.split('.', 2)[2]
-            jobinfo[name]['rj_id_long'] = hashlib.sha256(
+            job[name]['rj_title'] = title.split('.', 2)[2]
+            job[name]['rj_id_long'] = hashlib.sha256(
                 name.encode('utf-8')
             ).hexdigest()
-            jobinfo[name]['rj_id'] = jobinfo[name]['rj_id_long'][0:8]
+            job[name]['rj_id'] = job[name]['rj_id_long'][0:8]
 
         # DEBUG
-        #for i in jobinfo.keys():
+        #for i in job.keys():
         #    print(i)
         #    print('### timer')
-        #    for k, v in jobinfo[i]['timer'].items():
+        #    for k, v in job[i]['timer'].items():
         #        print(k, ':', v)
         #    print('### service')
-        #    for k, v in jobinfo[i]['service'].items():
+        #    for k, v in job[i]['service'].items():
         #        print(k, ':', v)
         #    print()
 
         # 開始時間で昇順にソート
         jobarray = [
-            jobinfo[k] for k, v in sorted(
-                jobinfo.items(), key=lambda x:x[1]['rec_begin']
+            job[k] for k, v in sorted(
+                job.items(), key=lambda x:x[1]['rec_begin']
             )
         ]
 
@@ -230,7 +242,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def _systemctl_show(self, unit, timer=True, service=True, showenv=False):
         """
         systemctl --user --all --no-pager showの出力を
-        ジョブ毎にDictにまとめ、配列に詰めて返す
+        ユニット毎にDictにまとめ、配列に詰めて返す
         """
         if showenv:
             command = self.systemctlshowenv
@@ -242,25 +254,25 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 command.append(unit + '.service')
 
 
-        jobarr = []
+        unitarray = []
         try:
             with Popen(
                 command, universal_newlines=True, stdout=PIPE, stderr=STDOUT,
             ) as J:
-                job = {}
+                unit = {}
                 for i in J.stdout:
                     i = i.strip()
                     if not i:
-                        jobarr.append(job)
-                        job = {}
+                        unitarray.append(unit)
+                        unit = {}
                         continue
                     k, v = i.split('=', 1)
-                    job[k] = v
-                # append last job
-                if job:
-                    jobarr.append(job)
+                    unit[k] = v
+                # append last unit information
+                if unit:
+                    unitarray.append(unit)
         except (OSError, ValueError) as err:
-            print('cannot get job information: ', err)
+            print('cannot get unit information: ', err)
             return []
 
-        return jobarr
+        return unitarray
