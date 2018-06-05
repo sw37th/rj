@@ -14,6 +14,8 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.prefix = 'RJ'
         self.unitdir = os.path.expanduser('~') + '/.config/systemd/user'
         self.systemctl = 'systemctl'
+        self.tuner_tt_num = 2
+        self.tuner_bs_num = 2
         self.systemctlstart = [
             self.systemctl,
             '--user',
@@ -237,6 +239,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             )
         ]
 
+        self._check_channel_resource(jobarray)
+
         return jobarray
 
     def _systemctl_show(self, unit, timer=True, service=True, showenv=False):
@@ -276,3 +280,37 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             return []
 
         return unitarray
+
+
+    def _check_channel_resource(self, jobarray):
+        """
+        チャンネルリソースの空き具合をチェックする
+        """
+        tuner = {
+            'tt': {'jobs': [], 'max': self.tuner_tt_num},
+            'bs': {'jobs': [], 'max': self.tuner_bs_num},
+        }
+        message = 'Not enough tuners'
+
+        for job in jobarray:
+            t = job.get('tuner')
+            if len(tuner[t]['jobs']) < tuner[t]['max']:
+                # チャンネルの空きがある
+                tuner[t]['jobs'].append(job)
+            else:
+                # ガベージコレクト
+                for overlap in tuner[t]['jobs']:
+                    # tuner[t]['jobs']のジョブから
+                    # 録画終了しているものを削除
+                    if job['rec_begin'] > overlap['rec_end']:
+                        tuner[t]['jobs'].remove(overlap)
+
+                # 改めてチャンネルの空き確認
+                if (len(tuner[t]['jobs']) < tuner[t]['max']):
+                    # チャンネルの空きがある
+                    tuner[t]['jobs'].append(job)
+                else:
+                    # 警告を追加
+                    job['alert'] = message
+                    for i in tuner[t]['jobs']:
+                        i['alert'] = message
