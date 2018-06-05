@@ -4,6 +4,7 @@
 
 Usage:
   rj [-h] add CH TITLE DATE TIME [RECORDINGTIME]
+  rj [-h] del JOBID [JOBID...]
   rj [-h] list [DATE]
   rj [-h] show JOBID
   rj [-h] modbegin JOBID (DELTATIME | DATE TIME)
@@ -99,6 +100,11 @@ if args['add']:
     if jid:
         jobinfo = rec.get_job_info(jid=jid)
         pj(jobinfo)
+
+elif args['del']:
+    rec.remove(args['JOBID'])
+    jobinfo = rec.get_job_info()
+    pj(jobinfo)
 
 elif args['list']:
     """

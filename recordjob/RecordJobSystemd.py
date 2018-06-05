@@ -21,6 +21,11 @@ class RecordJobSystemd(recordjob.RecordJob):
             '--user',
             'start',
         ]
+        self.systemctlstop = [
+            self.systemctl,
+            '--user',
+            'stop',
+        ]
         self.systemctlshow = [
             self.systemctl,
             '--user',
@@ -122,7 +127,22 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         rj_id_long = hashlib.sha256(unit.encode('utf-8')).hexdigest()
         return rj_id_long
 
-    def get_job_info(self, date=None, jid=None):
+    def remove(self, jid=[]):
+        """
+        ジョブスケジューラに登録済みの録画ジョブを削除する
+        """
+        jobinfo = self.get_job_info(jid=jid)
+        units = []
+        for i in jobinfo:
+            units.append(i['timer']['Names'])
+
+        self.systemctlstop.extend(units)
+        try:
+           run(self.systemctlstop, check=True)
+        except (CalledProcessError) as err:
+            print('cannot delete job:', err)
+
+    def get_job_info(self, date=None, jid=[]):
         """
         録画ジョブ情報を取得して返す
         """
@@ -131,10 +151,13 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         if jid:
             # 指定のIDのジョブのみ抽出
-            if len(jid) == 8:
-                jobinfo = [i for i in jobinfo if i['rj_id'] == jid]
+            # jidで渡された配列の文字列は
+            # すべて同じ長さであると想定する
+            if len(jid[0]) == 8:
+                key = 'rj_id'
             else:
-                jobinfo = [i for i in jobinfo if i['rj_id_long'] == jid]
+                key = 'rj_id_long'
+            jobinfo = [i for i in jobinfo if i[key] in jid]
         elif date:
             # dateで指定された日のジョブのみ抽出
             nextday = date + timedelta(days=1)

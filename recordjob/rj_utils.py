@@ -156,7 +156,7 @@ def print_joblist(jobinfo, chinfo={}, header=None, dateline=0, wormup=0):
         print(header)
     else:
         print(
-            'ID       Ch             Title                    ' + 
+            'ID       Ch             Title                    ' +
             'Start           walltime tuner'
         )
 
