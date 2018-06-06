@@ -28,7 +28,7 @@ def parse_channel(s_ch):
 def parse_time(s_time):
     """
     'HH:MM:SS' or 'HH:MM' or 秒数を引数として受け取り、
-    当日00:00:00からの差分としてtimedeltaオブジェクトとして返す
+    00:00:00からの差分のtimedeltaオブジェクトとして返す
     """
     re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
     time = None
@@ -63,7 +63,7 @@ def parse_time_delta(s_time_delta):
     else:
         return None
 
-def parse_date(s_date, dateline=0):
+def parse_date(s_date, dateline=0, dateonly=True):
     """
     'YYYY/MM/DD|MM/DD|DD' or
     'sun|mon|tue|wed|thu|fri|sat' or
@@ -71,6 +71,18 @@ def parse_date(s_date, dateline=0):
     '+Nd'
     を引数として受け取り、
     'YYYY/MM/DD 00:00:00'のdatetimeオブジェクトとして返す
+
+    dateline: 基準時刻(hour)
+      ジョブの登録や表示の際、何時から何時までを当日とみなすかの
+      基準となる時刻を指定する。
+      dateline=5 は 05:00:00-28:59:59 を当日とみなす。
+      この場合、1/2 02:00:00 は 1/1 26:00:00 となる。
+      (深夜アニメ対策)
+
+    dateonly: 
+      作成したdatetimeオブジェクトにdateline時刻を反映させるか否か。
+      dateonlyがFalseの場合、returnするdatetimeオブジェクトは
+      'YYYY/MM/DD <dateline>:00:00'となる。
     """
     re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
     re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$|^\d{1,2}$')
@@ -145,6 +157,9 @@ def parse_date(s_date, dateline=0):
 
     except ValueError:
         pass
+
+    if not dateonly:
+        date += timedelta(seconds=dateline*3600)
 
     return date
 

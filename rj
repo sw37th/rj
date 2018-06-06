@@ -112,7 +112,9 @@ elif args['list']:
     """
     date = None
     if args['DATE']:
-        date = rju.parse_date(args['DATE'], dateline=dateline_hour)
+        date = rju.parse_date(
+            args['DATE'], dateline=dateline_hour, dateonly=False
+        )
         if not date:
             print('invalit format:', args['DATE'])
             exit()
