@@ -40,6 +40,11 @@ class RecordJobSystemd(recordjob.RecordJob):
             '--no-pager',
             'show-environment',
         ]
+        self.systemctlreload = [
+            self.systemctl,
+            '--user',
+            'daemon-reload',
+        ]
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
@@ -142,6 +147,41 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
+    def mod_begintime(self, jobinfo, date=None, time_delta=None):
+        job = jobinfo.pop(0)
+        if not job:
+            return
+
+        unit = job['timer']['Names']
+        unitfile = job['timer']['FragmentPath']
+        title = job['rj_title']
+
+        if date:
+            begin = date
+        elif time_delta:
+            begin = job['rec_begin'] + time_delta
+
+        try:
+            # timerユニットファイル作成
+            with open(unitfile, 'w') as f:
+                f.write(
+                    self.template_timer.format(
+                        _suffix=self.prefix,
+                        _title=title,
+                        _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+                    )
+                )
+        except (PermissionError, FileNotFoundError) as err:
+            print('cannot modify start time:', err)
+            return 
+
+        # timer再読込
+        try:
+           run(self.systemctlreload, check=True)
+        except (CalledProcessError) as err:
+            print('cannot reload unit:', err)
+            return 
+
     def get_job_info(self, date=None, jid=[]):
         """
         録画ジョブ情報を取得して返す
@@ -243,17 +283,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 name.encode('utf-8')
             ).hexdigest()
             job[name]['rj_id'] = job[name]['rj_id_long'][0:8]
-
-        # DEBUG
-        #for i in job.keys():
-        #    print(i)
-        #    print('### timer')
-        #    for k, v in job[i]['timer'].items():
-        #        print(k, ':', v)
-        #    print('### service')
-        #    for k, v in job[i]['service'].items():
-        #        print(k, ':', v)
-        #    print()
 
         # 開始時間で昇順にソート
         jobarray = [
