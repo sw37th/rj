@@ -149,11 +149,9 @@ elif args['modbegin']:
         # 相対時刻で変更
         time_delta = rju.parse_time_delta(args['DELTATIME'])
         if time_delta:
-            rec.mod_begintime(jobinfo, time_delta=time_delta)
+            rec.mod_begintime(jobinfo=jobinfo, time_delta=time_delta)
     else:
         # 絶対時刻で変更
-
-        # 引数チェック(開始時刻)
         begin = check_start_time(args['DATE'], args['TIME'])
         if not begin:
             exit()

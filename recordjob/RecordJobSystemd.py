@@ -71,7 +71,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
     def add(self, ch, title, begin, rectime):
         """
-        ジョブスケジューラに録画ジョブを追加する
+        recpt1コマンドを実行するserviceユニットファイルと
+        そのserviceを指定時刻に実行するtimerユニットファイル
+        を作成し、systemctl startでtimerを有効化する。
         """
         jid = ''
         if int(ch) < 100:
@@ -83,7 +85,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             self.recpt1.append('--lnb 15')
 
 
-        # RJ.211.goldenkamui.20180529005950.bs.service
+        # RJ.ch.title.YYYYMMDDhhmmss.tuner
         unit = '{}.{}.{}.{}.{}'.format(
             self.prefix,
             ch,
@@ -129,51 +131,56 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             print('cannot submit job:', err)
             return ''
 
+        # ユニット名のsha256ハッシュをジョブIDとして返す
         rj_id_long = hashlib.sha256(unit.encode('utf-8')).hexdigest()
         return rj_id_long
 
     def remove(self, jid=[]):
         """
-        ジョブスケジューラに登録済みの録画ジョブを削除する
+        録画ジョブを削除する
         """
         jobinfo = self.get_job_info(jid=jid)
         units = []
         for i in jobinfo:
             units.append(i['timer']['Names'])
 
+        # timer停止(ジョブ削除)
         self.systemctlstop.extend(units)
         try:
            run(self.systemctlstop, check=True)
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
-    def mod_begintime(self, jobinfo, date=None, time_delta=None):
-        job = jobinfo.pop(0)
-        if not job:
-            return
+    def mod_begintime(self, jobinfo=[], jid=[], date=None, time_delta=None):
+        """
+        録画ジョブの録画開始時刻を変更する
+        """
+        if not jobinfo:
+            jobinfo = self.get_job_info(jid=jid)
 
-        unit = job['timer']['Names']
-        unitfile = job['timer']['FragmentPath']
-        title = job['rj_title']
+        for job in jobinfo:
+            unit = job['timer']['Names']
+            unitfile = job['timer']['FragmentPath']
+            title = job['rj_title']
 
-        if date:
-            begin = date
-        elif time_delta:
-            begin = job['rec_begin'] + time_delta
+            if date:
+                begin = date
+            elif time_delta:
+                begin = job['rec_begin'] + time_delta
 
-        try:
-            # timerユニットファイル作成
-            with open(unitfile, 'w') as f:
-                f.write(
-                    self.template_timer.format(
-                        _suffix=self.prefix,
-                        _title=title,
-                        _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+            try:
+                # timerユニットファイル再作成
+                with open(unitfile, 'w') as f:
+                    f.write(
+                        self.template_timer.format(
+                            _suffix=self.prefix,
+                            _title=title,
+                            _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+                        )
                     )
-                )
-        except (PermissionError, FileNotFoundError) as err:
-            print('cannot modify start time:', err)
-            return 
+            except (PermissionError, FileNotFoundError) as err:
+                print('cannot modify start time:', err)
+                return 
 
         # timer再読込
         try:
@@ -186,7 +193,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         録画ジョブ情報を取得して返す
         """
-
         jobinfo = self._get_systemd_job_info()
 
         if jid:
