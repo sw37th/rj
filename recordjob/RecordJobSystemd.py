@@ -48,7 +48,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
-Description={_suffix}: timer unit for {_title}
+Description={_description}
 CollectMode=inactive-or-failed
 
 [Timer]
@@ -69,6 +69,32 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def __str__(self):
         return self.name
 
+    def _create_timer(self, unitname, begin):
+        # timerユニットファイル作成
+        with open(unitname, 'w') as f:
+            f.write(
+                self.template_timer.format(
+                    _suffix=self.prefix,
+                    _description=unitname,
+                    _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+                )
+            )
+
+    def _create_service(self, unitname, ch, title, begin, rectime):
+        # serviceユニットファイル作成
+        with open(unitname, 'w') as f:
+            output = self.recdir + '/{}.{}'.format(title, ch)
+            f.write(
+                self.template_service.format(
+                    _suffix=self.prefix,
+                    _title=title,
+                    _ch=ch,
+                    _walltime=str(int(rectime.total_seconds())),
+                    _recpt1=' '.join(self.recpt1),
+                    _output=output,
+                )
+            )
+
     def add(self, ch, title, begin, rectime):
         """
         recpt1コマンドを実行するserviceユニットファイルと
@@ -84,7 +110,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             tuner = 'bs'
             self.recpt1.append('--lnb 15')
 
-
         # RJ.ch.title.YYYYMMDDhhmmss.tuner
         unit = '{}.{}.{}.{}.{}'.format(
             self.prefix,
@@ -97,28 +122,10 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         unit_service = unit + '.service'
 
         try:
-            # timerユニットファイル作成
-            with open(self.unitdir + '/' + unit_timer, 'w') as f:
-                f.write(
-                    self.template_timer.format(
-                        _suffix=self.prefix,
-                        _title=title,
-                        _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
-                    )
-                )
-            # serviceユニットファイル作成
-            with open(self.unitdir + '/' + unit_service, 'w') as f:
-                output = self.recdir + '/{}.{}'.format(title, ch)
-                f.write(
-                    self.template_service.format(
-                        _suffix=self.prefix,
-                        _title=title,
-                        _ch=ch,
-                        _walltime=str(int(rectime.total_seconds())),
-                        _recpt1=' '.join(self.recpt1),
-                        _output=output,
-                    )
-                )
+            self._create_timer(self.unitdir + '/' + unit_timer, begin)
+            self._create_service(
+                self.unitdir + '/' + unit_service, ch, title, begin, rectime
+            )
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
             return ''
@@ -170,14 +177,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
             try:
                 # timerユニットファイル再作成
-                with open(unitfile, 'w') as f:
-                    f.write(
-                        self.template_timer.format(
-                            _suffix=self.prefix,
-                            _title=title,
-                            _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
-                        )
-                    )
+                self._create_timer(unitfile, begin)
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot modify start time:', err)
                 return 
