@@ -30,7 +30,7 @@ def parse_time(s_time):
     'HH:MM:SS' or 'HH:MM' or 秒数を引数として受け取り、
     00:00:00からの差分のtimedeltaオブジェクトとして返す
     """
-    re_time = re.compile(r'^\d+:\d+:\d+|^\d+:\d+|\d+')
+    re_time = re.compile(r'^\d+:\d+:\d+$|^\d+:\d+$|^\d+$')
     time = None
 
     if re.match(re_time, s_time):
