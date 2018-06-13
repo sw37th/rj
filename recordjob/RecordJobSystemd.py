@@ -48,7 +48,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
-Description={_description}
+Description={_suffix}: timer unit for {_title}
 CollectMode=inactive-or-failed
 
 [Timer]
@@ -69,19 +69,23 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def __str__(self):
         return self.name
 
-    def _create_timer(self, unitname, begin):
-        # timerユニットファイル作成
+    def _create_timer(self, unitname, title, begin):
+        """
+        timerユニットファイル作成
+        """
         with open(unitname, 'w') as f:
             f.write(
                 self.template_timer.format(
                     _suffix=self.prefix,
-                    _description=unitname,
+                    _title=title,
                     _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
                 )
             )
 
-    def _create_service(self, unitname, ch, title, begin, rectime):
+    def _create_service(self, unitname, ch, title, rectime):
+        """
         # serviceユニットファイル作成
+        """
         with open(unitname, 'w') as f:
             output = self.recdir + '/{}.{}'.format(title, ch)
             f.write(
@@ -122,9 +126,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         unit_service = unit + '.service'
 
         try:
-            self._create_timer(self.unitdir + '/' + unit_timer, begin)
+            self._create_timer(self.unitdir + '/' + unit_timer, title, begin)
             self._create_service(
-                self.unitdir + '/' + unit_service, ch, title, begin, rectime
+                self.unitdir + '/' + unit_service, ch, title, rectime
             )
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
@@ -158,36 +162,66 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
-    def mod_begintime(self, jobinfo=[], jid=[], date=None, time_delta=None):
+    def modify(self, jobinfo=[], jid='', ch=None, rectime=None, date=None,
+               delta=None):
         """
-        録画ジョブの録画開始時刻を変更する
+        引数に応じてservice、timerユニットを再作成する
+        引数なしの場合はsystemctl reloadのみを実行する
         """
         if not jobinfo:
-            jobinfo = self.get_job_info(jid=jid)
+            if jid:
+                jobinfo = self.get_job_info(jid=jid)
 
-        for job in jobinfo:
-            unit = job['timer']['Names']
-            unitfile = job['timer']['FragmentPath']
-            title = job['rj_title']
+        if ch or rectime:
+            self._mod_service(jobinfo, ch, rectime)
+        if date or delta:
+            self._mod_timer(jobinfo, date, delta)
 
-            if date:
-                begin = date
-            elif time_delta:
-                begin = job['rec_begin'] + time_delta
-
-            try:
-                # timerユニットファイル再作成
-                self._create_timer(unitfile, begin)
-            except (PermissionError, FileNotFoundError) as err:
-                print('cannot modify start time:', err)
-                return 
-
-        # timer再読込
+        # ユニット再読込
         try:
            run(self.systemctlreload, check=True)
         except (CalledProcessError) as err:
             print('cannot reload unit:', err)
-            return 
+
+    def _mod_service(self, jobinfo=[], ch=None, rectime=None):
+        """
+        録画ジョブのチャンネル、録画時間を変更する
+        """
+        for job in jobinfo:
+            unit = job.get('service',{}).get('Names')
+            unitfile = job.get('service',{}).get('FragmentPath')
+            title = job.get('rj_title')
+
+            if not ch:
+                ch = job.get('channel')
+            if not rectime:
+                rectime = job.get('walltime')
+
+            try:
+                # serviceユニットファイル再作成
+                self._create_service(unitfile, ch, title, rectime)
+            except (PermissionError, FileNotFoundError) as err:
+                print('cannot modify recording parameter:', err)
+
+    def _mod_timer(self, jobinfo=[], date=None, delta=None):
+        """
+        録画ジョブの録画開始時刻を変更する
+        """
+        for job in jobinfo:
+            unit = job.get('timer',{}).get('Names')
+            unitfile = job.get('timer',{}).get('FragmentPath')
+            title = job.get('rj_title')
+
+            if date:
+                begin = date
+            elif delta:
+                begin = job.get('rec_begin') + delta
+
+            try:
+                # timerユニットファイル再作成
+                self._create_timer(unitfile, title, begin)
+            except (PermissionError, FileNotFoundError) as err:
+                print('cannot modify start time:', err)
 
     def get_job_info(self, date=None, jid=[]):
         """
