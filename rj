@@ -37,15 +37,8 @@ default_rectime = '00:29:30'
 
 #scheduler = "Torque"
 scheduler = "Systemd"
-args = docopt(__doc__)
 
-mdl = importlib.import_module('recordjob.RecordJob' + scheduler)
-cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
-rec = cls()
-
-chinfo = rec.get_channel_info().get('channel', {})
-
-def pj(jobinfo, header=None):
+def pj(jobinfo, chinfo, header=None):
     rju.print_joblist(
         jobinfo,
         chinfo,
@@ -72,115 +65,134 @@ def check_start_time(date, time):
 
     return begin
 
-def check_record_time(time):
-    rectime = rju.parse_time(time)
-    if not rectime:
-        print('Invalid Recordingtime:', time)
-    return rectime
+def main():
+    args = docopt(__doc__)
 
-if args.get('add'):
-    """
-    録画ジョブを追加する
-    """
+    mdl = importlib.import_module('recordjob.RecordJob' + scheduler)
+    cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
+    rec = cls()
 
-    # 引数チェック(チャンネル)
-    ch = rju.parse_channel(args.get('CH'))
-    if not ch:
-        print('Invalid Channel:', args.get('CH'))
-        exit()
+    chinfo = rec.get_channel_info().get('channel', {})
 
-    # 引数チェック(開始時刻)
-    begin = check_start_time(args.get('DATE'), args.get('TIME'))
-    if not begin:
-        exit()
+    if args.get('add'):
+        """
+        録画ジョブを追加する
+        """
 
-    # 引数チェック(録画時間)
-    if args.get('RECORDINGTIME'):
-        rectime = check_record_time(args.get('RECORDINGTIME'))
-    else:
-        rectime = rju.parse_time(default_rectime)
-
-    if not rectime:
-        exit()
-
-    jid = rec.add(ch, args.get('TITLE'), begin, rectime)
-    if jid:
-        jobinfo = rec.get_job_info(jid=jid)
-        pj(jobinfo)
-
-elif args.get('del'):
-    rec.remove(args.get('JOBID'))
-    jobinfo = rec.get_job_info()
-    pj(jobinfo)
-
-elif args.get('list'):
-    """
-    スケジュールされた録画ジョブを一覧表示する
-    """
-    date = None
-    s_date = args.get('DATE')
-    if s_date:
-        date = rju.parse_date(
-            s_date, dateline=dateline_hour, dateonly=False
-        )
-        if not date:
-            print('invalit format:', s_date)
+        # 引数チェック(チャンネル)
+        ch = rju.parse_channel(args.get('CH'))
+        if not ch:
+            print('Invalid Channel:', args.get('CH'))
             exit()
 
-    jobinfo = rec.get_job_info(date=date)
-    pj(jobinfo)
+        # 引数チェック(開始時刻)
+        begin = check_start_time(args.get('DATE'), args.get('TIME'))
+        if not begin:
+            exit()
 
-elif args.get('show'):
-    """
-    引数に指定されたIDのジョブを表示する
-    """
-    jobinfo = rec.get_job_info(jid=args.get('JOBID',''))
-    if jobinfo:
-        rju.print_job_information(
-            jobinfo,
-            chinfo,
-            dateline=dateline_hour,
-            wormup=wormup_sec)
-
-elif args.get('modbegin') or args.get('modrectime'):
-    """
-    録画ジョブの開始時間を変更する
-    """
-    jid = args.get('JOBID')
-    jobinfo = rec.get_job_info(jid=jid)
-    if not jobinfo:
-        print('No such jobid:', jid)
-
-    # before modify
-    pj(jobinfo)
-
-    if args.get('modbegin'):
-        if args.get('DELTATIME'):
-            # 相対時刻で変更
-            delta = rju.parse_time_delta(args.get('DELTATIME'))
-            if delta:
-                rec.modify(jobinfo=jobinfo, delta=delta)
+        # 引数チェック(録画時間)
+        if args.get('RECORDINGTIME'):
+            rectime = rju.parse_time(args.get('RECORDINGTIME'))
         else:
-            # 絶対時刻で変更
-            begin = check_start_time(args.get('DATE'), args.get('TIME'))
-            if not begin:
-                exit()
-            rec.modify(jobinfo, date=begin)
-    elif args.get('modrectime'):
-        rectime = check_record_time(args.get('RECORDINGTIME'))
+            rectime = rju.parse_time(default_rectime)
+
         if not rectime:
             exit()
-        rec.modify(jobinfo, rectime=rectime)
 
-    # after modify
-    jobinfo = rec.get_job_info(jid=jid)
-    pj(jobinfo, '(Start time modified)')
+        jid = rec.add(ch, args.get('TITLE'), begin, rectime)
+        if jid:
+            jobinfo = rec.get_job_info(jid=jid)
+            pj(jobinfo, chinfo)
 
-elif args.get('chlist'):
-    """
-    テレビ局名とチャンネル番号の一覧を表示する
-    """
-    print('  Ch: TV station name')
-    print(' ---- ----------------')
-    for name, num in sorted(chinfo.items(), key=lambda x: x[0]):
-        print('{:>4}: {}'.format(name, num))
+    elif args.get('del'):
+        rec.remove(args.get('JOBID'))
+        jobinfo = rec.get_job_info()
+        pj(jobinfo, chinfo)
+
+    elif args.get('list'):
+        """
+        スケジュールされた録画ジョブを一覧表示する
+        """
+        date = None
+        s_date = args.get('DATE')
+        if s_date:
+            date = rju.parse_date(
+                s_date, dateline=dateline_hour, dateonly=False
+            )
+            if not date:
+                print('invalit format:', s_date)
+                exit()
+
+        jobinfo = rec.get_job_info(date=date)
+        pj(jobinfo, chinfo)
+
+    elif args.get('show'):
+        """
+        引数に指定されたIDのジョブを表示する
+        """
+        jobinfo = rec.get_job_info(jid=args.get('JOBID',''))
+        if jobinfo:
+            rju.print_job_information(
+                jobinfo,
+                chinfo,
+                dateline=dateline_hour,
+                wormup=wormup_sec)
+
+    elif args.get('modbegin') or args.get('modrectime'):
+        """
+        登録済み録画ジョブの開始時刻または録画時間を変更する
+        """
+        jid = args.get('JOBID')
+        origin = rec.get_job_info(jid=jid)
+        if not origin:
+            print('No such jobid:', ', '.join(jid))
+            exit()
+
+        if args.get('modbegin'):
+            """
+            開始時刻を変更する
+            """
+            if args.get('DELTATIME'):
+                # 相対時刻で変更
+                delta = rju.parse_time_delta(args.get('DELTATIME'))
+                if not delta:
+                    print('invalid DELTATIME:', args.get('DELTATIME'))
+                    exit()
+                rec.modify(origin, delta=delta)
+            else:
+                # 絶対時刻で変更
+                begin = check_start_time(args.get('DATE'), args.get('TIME'))
+                if not begin:
+                    exit()
+                rec.modify(origin, date=begin)
+            message = '(Start time modified)'
+        elif args.get('modrectime'):
+            """
+            録画時間を変更する
+            """
+            rectime = rju.parse_time(args.get('RECORDINGTIME'))
+            if not rectime:
+                print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
+                exit()
+            rec.modify(origin, rectime=rectime)
+            message = '(Recording time modified)'
+
+        modified = rec.get_job_info(jid=jid)
+
+        # 変更前と変更後のジョブ情報を表示
+        pj(origin, chinfo)
+        pj(modified, chinfo, message)
+
+    elif args.get('chlist'):
+        """
+        テレビ局名とチャンネル番号の一覧を表示する
+        """
+        print('  Ch: TV station name')
+        print(' ---- ----------------')
+        for name, num in sorted(chinfo.items(), key=lambda x: x[0]):
+            print('{:>4}: {}'.format(name, num))
+
+"""
+main
+"""
+main()
