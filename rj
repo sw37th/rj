@@ -3,16 +3,18 @@
 """Record the TV program by JOB scheduler
 
 Usage:
-  rj [-h] add CH TITLE DATE TIME [RECORDINGTIME]
-  rj [-h] del JOBID [JOBID...]
-  rj [-h] list [DATE]
-  rj [-h] show JOBID
-  rj [-h] modbegin JOBID (DELTATIME | DATE TIME)
-  rj [-h] modrectime JOBID RECORDINGTIME
-  rj [-h] chlist
+  rj add CH TITLE DATE TIME [RECORDINGTIME]
+  rj del JOBID [JOBID...]
+  rj list [DATE]
+  rj show JOBID
+  rj modbegin JOBID (DELTATIME | DATE TIME)
+  rj setrect JOBID RECORDINGTIME
+  rj expandrect JOBID DELTATIME
+  rj chlist
+  rj -h | --help
 
 Options:
-  -h --help   show this screen.
+  -h --help     show this screen.
 
 """
 
@@ -21,6 +23,7 @@ from docopt import docopt
 import importlib
 import recordjob
 import re
+import sys
 import time
 
 # dateline_hour: 一日の基準時刻(時)
@@ -45,25 +48,25 @@ def check_start_time(date, time):
             parse_date(date, dateline=dateline_hour) + parse_time(time)
         )
     except TypeError:
-        print("Invalid Date:", date, time)
+        print("invalid DATE or TIME:", date, time)
         return None
 
     # wormup_secの秒数だけ開始時刻のマージンを取る
     begin -= parse_time(str(wormup_sec))
 
-    if is_past(begin):
+    if not is_future(begin):
         print('start in the past')
         return None
 
     return begin
 
-def is_past(time):
+def is_future(time):
     """
     引数で渡されたdatetimeオブジェクトが
-    現在時刻より過去の場合にTrueを返す
+    現在時刻より未来の場合にTrueを返す
     """
     current = datetime.now()
-    if time < current:
+    if time > current:
         return True
     else:
         return False
@@ -402,13 +405,13 @@ def main():
         # 引数チェック(チャンネル)
         ch = parse_channel(args.get('CH'))
         if not ch:
-            print('Invalid Channel:', args.get('CH'))
-            exit()
+            print('invalid CHannel:', args.get('CH'))
+            sys.exit(1)
 
         # 引数チェック(開始時刻)
         begin = check_start_time(args.get('DATE'), args.get('TIME'))
         if not begin:
-            exit()
+            sys.exit(1)
 
         # 引数チェック(録画時間)
         if args.get('RECORDINGTIME'):
@@ -417,7 +420,7 @@ def main():
             rectime = parse_time(default_rectime)
 
         if not rectime:
-            exit()
+            sys.exit(1)
 
         jid = rec.add(ch, args.get('TITLE'), begin, rectime)
         if jid:
@@ -441,7 +444,7 @@ def main():
             )
             if not date:
                 print('invalit format:', s_date)
-                exit()
+                sys.exit(1)
 
         jobinfo = rec.get_job_info(date=date)
         print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
@@ -458,50 +461,90 @@ def main():
                 dateline=dateline_hour,
                 wormup=wormup_sec)
 
-    elif args.get('modbegin') or args.get('modrectime'):
+    elif args.get('modbegin'):
         """
-        登録済み録画ジョブの開始時刻または録画時間を変更する
+        登録済み録画ジョブの開始時刻を変更する
         """
         jid = args.get('JOBID')
+
         origin = rec.get_job_info(jid=jid)
         if not origin:
             print('No such jobid:', ', '.join(jid))
-            exit()
+            sys.exit(1)
 
-        if args.get('modbegin'):
-            """
-            開始時刻を変更する
-            """
-            if args.get('DELTATIME'):
-                # 相対時刻で変更
-                delta = parse_time_delta(args.get('DELTATIME'))
-                if not delta:
-                    print('invalid DELTATIME:', args.get('DELTATIME'))
-                    exit()
-                rec.modify(origin, delta=delta)
-            else:
-                # 絶対時刻で変更
-                begin = check_start_time(args.get('DATE'), args.get('TIME'))
-                if not begin:
-                    exit()
-                rec.modify(origin, date=begin)
-            message = '(Start time modified)'
-        elif args.get('modrectime'):
-            """
-            録画時間を変更する
-            """
-            rectime = parse_time(args.get('RECORDINGTIME'))
-            if not rectime:
-                print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
-                exit()
-            rec.modify(origin, rectime=rectime)
-            message = '(Recording time modified)'
+        if args.get('DELTATIME'):
+            # 相対時刻で変更
+            delta = parse_time_delta(args.get('DELTATIME'))
+            if not delta:
+                print('invalid DELTATIME:', args.get('DELTATIME'))
+                sys.exit(1)
+            rec.modify(origin, delta=delta)
+        else:
+            # 絶対時刻で変更
+            begin = check_start_time(args.get('DATE'), args.get('TIME'))
+            if not begin:
+                sys.exit(1)
+            rec.modify(origin, date=begin)
 
         modified = rec.get_job_info(jid=jid)
 
         # 変更前と変更後のジョブ情報を表示
         print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(modified, chinfo, dateline_hour, wormup_sec, message)
+        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
+                      '(Start time modified)')
+
+    elif args.get('setrect'):
+        """
+        登録済み録画ジョブの録画時間を再設定する。
+        引数で渡された値を新しい録画時間とする。
+        """
+        jid = args.get('JOBID')
+
+        origin = rec.get_job_info(jid=jid)
+        if not origin:
+            print('No such jobid:', ', '.join(jid))
+            sys.exit(1)
+
+        # 'RECORDINGTIME'の値をそのまま新録画時間として設定
+        rectime = parse_time(args.get('RECORDINGTIME'))
+        if not rectime:
+            print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
+            sys.exit(1)
+
+        rec.modify(origin, rectime=rectime)
+        modified = rec.get_job_info(jid=jid)
+
+        # 変更前と変更後のジョブ情報を表示
+        print_joblist(origin, chinfo, dateline_hour, wormup_sec)
+        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
+                      '(Recording time modified)')
+
+    elif args.get('expandrect'):
+        """
+        登録済み録画ジョブの録画時間を再設定する。
+        現在の録画時間を引数で渡された時間分伸長(短縮)する。
+        """
+        jid = args.get('JOBID')
+
+        origin = rec.get_job_info(jid=jid)
+        if not origin:
+            print('No such jobid:', ', '.join(jid))
+            sys.exit(1)
+
+        # 現在の録画時間と'RECORDINGTIME'の差分を新録画時間として設定
+        rectime_delta = parse_time_delta(args.get('DELTATIME'))
+        if not rectime_delta:
+            print('invalid DELTATIME:', args.get('DELTATIME'))
+            sys.exit(1)
+        rectime = origin[0].get('walltime') + rectime_delta
+
+        rec.modify(origin, rectime=rectime)
+        modified = rec.get_job_info(jid=jid)
+
+        # 変更前と変更後のジョブ情報を表示
+        print_joblist(origin, chinfo, dateline_hour, wormup_sec)
+        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
+                      '(Recording time modified)')
 
     elif args.get('chlist'):
         """
