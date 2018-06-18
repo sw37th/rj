@@ -14,8 +14,6 @@ class RecordJob(object):
         self.channel_file = channel_file
         self.recpt1_path = recpt1_path
         self.recpt1ctl_path = recpt1ctl_path
-        self.scriptdir = scriptdir
-        self.logdir = logdir
         self.recdir = recdir
         self.comm_timeout = comm_timeout
 
