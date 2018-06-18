@@ -8,8 +8,8 @@ Usage:
   rj list [DATE]
   rj show JOBID
   rj modbegin JOBID (DELTATIME | DATE TIME)
-  rj setrect JOBID RECORDINGTIME
-  rj expandrect JOBID DELTATIME
+  rj totalrec JOBID RECORDINGTIME
+  rj extendrec JOBID DELTATIME
   rj chlist
   rj -h | --help
 
@@ -493,7 +493,7 @@ def main():
         print_joblist(modified, chinfo, dateline_hour, wormup_sec,
                       '(Start time modified)')
 
-    elif args.get('setrect'):
+    elif args.get('totalrec'):
         """
         登録済み録画ジョブの録画時間を再設定する。
         引数で渡された値を新しい録画時間とする。
@@ -519,7 +519,7 @@ def main():
         print_joblist(modified, chinfo, dateline_hour, wormup_sec,
                       '(Recording time modified)')
 
-    elif args.get('expandrect'):
+    elif args.get('extendrec'):
         """
         登録済み録画ジョブの録画時間を再設定する。
         現在の録画時間を引数で渡された時間分伸長(短縮)する。
