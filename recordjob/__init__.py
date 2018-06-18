@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 
 import yaml
+import os
 
 channel_file = '/home/autumn/work/rj/channel.yml'
 recpt1_path = '/usr/local/bin/recpt1'
-scriptdir = '/home/autumn/jobsh'
-logdir = '/home/autumn/log'
-recdir = '/home/autumn/rec'
+recpt1ctl_path = '/usr/local/bin/recpt1ctl'
+recdir = os.path.expanduser('~') + '/rec'
 comm_timeout = 10
 
 class RecordJob(object):
     def __init__(self):
         self.channel_file = channel_file
         self.recpt1_path = recpt1_path
+        self.recpt1ctl_path = recpt1ctl_path
         self.scriptdir = scriptdir
         self.logdir = logdir
         self.recdir = recdir
