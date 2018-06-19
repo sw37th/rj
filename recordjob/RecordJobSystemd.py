@@ -49,7 +49,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.recpt1ctl = [self.recpt1ctl_path]
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
-Description={_suffix}: timer unit for {_title}
+Description={_suffix}:{_repeat}: timer unit for {_title}
 CollectMode=inactive-or-failed
 
 [Timer]
@@ -70,16 +70,30 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def __str__(self):
         return self.name
 
-    def _create_timer(self, unitname, title, begin):
+    def _create_timer(self, unitname, title, begin, repeat):
         """
         timerユニットファイル作成
         """
+        repeat = repeat.upper()
+        if repeat == 'WEEKLY':
+            str_begin = begin.strftime('%a *-*-* %H:%M:%S')
+        elif repeat == 'DAILY':
+            str_begin = begin.strftime('*-*-* %H:%M:%S')
+        elif repeat == 'WEEKDAY':
+            str_begin = begin.strftime('Mon..Fri *-*-* %H:%M:%S')
+        elif repeat == 'ASADORA':
+            str_begin = begin.strftime('Mon..Sat *-*-* %H:%M:%S')
+        else:
+            str_begin = begin.strftime('%Y-%m-%d %H:%M:%S')
+            repeat = 'ONESHOT'
+
         with open(unitname, 'w') as f:
             f.write(
                 self.template_timer.format(
                     _suffix=self.prefix,
+                    _repeat=repeat,
                     _title=title,
-                    _begin=begin.strftime('%Y-%m-%d %H:%M:%S'),
+                    _begin=str_begin,
                 )
             )
 
@@ -100,7 +114,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 )
             )
 
-    def add(self, ch, title, begin, rectime):
+    def add(self, ch, title, begin, rectime, repeat=''):
         """
         recpt1コマンドを実行するserviceユニットファイルと
         そのserviceを指定時刻に実行するtimerユニットファイル
@@ -123,20 +137,18 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             begin.strftime('%Y%m%d%H%M%S'),
             tuner,
         )
-        unit_timer = unit + '.timer'
-        unit_service = unit + '.service'
+        unitfile_timer = self.unitdir + '/' + unit + '.timer'
+        unitfile_service = self.unitdir + '/' + unit + '.service'
 
         try:
-            self._create_timer(self.unitdir + '/' + unit_timer, title, begin)
-            self._create_service(
-                self.unitdir + '/' + unit_service, ch, title, rectime
-            )
+            self._create_timer(unitfile_timer, title, begin, repeat)
+            self._create_service(unitfile_service, ch, title, rectime)
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
             return ''
 
         # timer開始
-        self.systemctlstart.append(unit_timer)
+        self.systemctlstart.append(unit + '.timer')
         try:
            run(self.systemctlstart, check=True)
         except (CalledProcessError) as err:
@@ -164,7 +176,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             print('cannot delete job:', err)
 
     def change(self, jobinfo=[], jid='', ch=None, rectime=None, date=None,
-               delta=None):
+               delta=None, repeat=''):
         """
         引数に応じてservice、timerユニットを再作成する
         引数なしの場合はsystemctl reloadのみを実行する
@@ -176,7 +188,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         if ch or rectime:
             self._change_service(jobinfo, ch, rectime)
         if date or delta:
-            self._change_timer(jobinfo, date, delta)
+            self._change_timer(jobinfo, date, delta, repeat)
 
         # ユニット再読込
         try:
@@ -229,7 +241,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot change recording parameter:', err)
 
-    def _change_timer(self, jobinfo=[], date=None, delta=None):
+    def _change_timer(self, jobinfo=[], date=None, delta=None, repeat=''):
         """
         録画ジョブの録画開始時刻を変更する
         """
@@ -245,7 +257,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
             try:
                 # timerユニットファイル再作成
-                self._create_timer(unitfile, title, begin)
+                self._create_timer(unitfile, title, begin, repeat)
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot change start time:', err)
 
@@ -303,52 +315,54 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         for name in list(job.keys()):
             # timerユニット情報、serviceユニット情報の
             # どちらか一方しかないジョブは削除する
-            if 'timer' not in job[name]:
-                print(job[name]['service'].get('Names'), 'is orphaned')
+            J = job.get(name)
+            if 'timer' not in J:
+                print(J['service'].get('Names'), 'is orphaned')
                 del job[name]
                 continue
-            if 'service' not in job[name]:
-                print(job[name]['timer'].get('Names'), 'is orphaned')
+            if 'service' not in J:
+                print(J['timer'].get('Names'), 'is orphaned')
                 del job[name]
                 continue
 
             # 録画開始時刻
-            rec_begin = job[name]['timer'].get('NextElapseUSecRealtime')
+            rec_begin = J['timer'].get('NextElapseUSecRealtime')
             if not rec_begin:
                 # ジョブ実行中(録画中)
-                rec_begin = job[name]['timer'].get('LastTriggerUSec')
+                rec_begin = J['timer'].get('LastTriggerUSec')
 
             if rec_begin:
                 # 開始時刻のdatetimeオブジェクトを追加
-                job[name]['rec_begin'] = datetime.strptime(
+                J['rec_begin'] = datetime.strptime(
                     # WDY YYYY-MM-DD HH:MM:SS TZN
                     rec_begin, "%a %Y-%m-%d %H:%M:%S %Z"
                 )
-                if job[name]['rec_begin'] < current:
+                if J['rec_begin'] < current:
                     # 録画中
-                    elapse = current - job[name]['rec_begin']
-                    job[name]['elapse'] = elapse
-                    job[name]['record_state'] = 'Recording'
+                    elapse = current - J['rec_begin']
+                    J['elapse'] = elapse
+                    J['record_state'] = 'Recording'
 
             # チャンネル、録画時間、録画終了時刻
-            rec_env = job[name]['service'].get('Environment')
+            rec_env = J['service'].get('Environment')
             if rec_env:
                 ch, walltime = rec_env.split()
                 ch = ch.split('=')[1]
                 walltime = walltime.split('=')[1]
 
-                job[name]['channel'] = ch
-                job[name]['walltime'] = timedelta(seconds=int(walltime))
-                job[name]['rec_end'] = (
-                    job[name]['rec_begin'] + job[name]['walltime'] 
+                J['channel'] = ch
+                J['walltime'] = timedelta(seconds=int(walltime))
+                J['rec_end'] = (
+                    J['rec_begin'] + J['walltime'] 
                 )
-            job[name]['user'] = user_env.get('USER')
+            J['user'] = user_env.get('USER')
             title = name.rsplit('.', 2)[0]
-            job[name]['rj_title'] = title.split('.', 2)[2]
-            job[name]['rj_id_long'] = hashlib.sha256(
+            J['rj_title'] = title.split('.', 2)[2]
+            J['rj_id_long'] = hashlib.sha256(
                 name.encode('utf-8')
             ).hexdigest()
-            job[name]['rj_id'] = job[name]['rj_id_long'][0:8]
+            J['rj_id'] = J['rj_id_long'][0:8]
+            J['repeat'] = J['timer'].get('Description').split(':')[1]
 
         # 開始時間で昇順にソート
         jobarray = [

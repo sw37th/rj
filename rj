@@ -3,18 +3,20 @@
 """Record the TV program by JOB scheduler
 
 Usage:
-  rj add CH TITLE DATE TIME [RECORDINGTIME]
+  rj add [-r|--repeat <TYPE>] CH TITLE DATE TIME [RECORDINGTIME]
   rj del JOBID [JOBID...]
   rj list [DATE]
   rj show JOBID
   rj modbegin JOBID (DELTATIME | DATE TIME)
   rj totalrec JOBID RECORDINGTIME
   rj extendrec JOBID DELTATIME
-  rj listch
-  rj -h | --help
+  rj setrep JOBID TYPE
+  rj unsetrep JOBID
+  rj listch rj -h | --help
 
 Options:
-  -h --help     show this screen.
+  -h --help            :show this screen.
+  -r --repeat <TYPE>   :set repeat flag. TYPE can specify 'weekly', 'daily', 'weekday', 'asadora'
 
 """
 
@@ -223,12 +225,19 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
     """
     ジョブの配列を受け取り一覧表示する
     """
+    repeat_state = {
+        'WEEKLY':  'W',
+        'DAILY':   'D',
+        'WEEKDAY': 'WD',
+        'ASADORA': 'A',
+        'ONESHOT': '',
+    }
     if header:
         print(header)
     else:
         print(
             'ID       Ch             Title                    ' +
-            'Start           walltime tuner'
+            'Start           walltime rep tuner'
         )
 
     prev_wday = ''
@@ -243,7 +252,7 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
         if wday != prev_wday:
             print(
                 '-------- -------------- ------------------------ ' +
-                '--------------- -------- -----'
+                '--------------- -------- --- -----'
             )
 
         prev_wday = wday
@@ -274,19 +283,19 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
         if j.get('alert'):
             state = ' '.join((j.get('alert'), state))
 
-        print(
-            '{:8} {:>3} {:10} {:24} {} {} {:5} {} {}'.format(
-                j.get('rj_id', ''),
-                chnum,
-                chname,
-                j.get('rj_title', ''),
-                starttime,
-                s_walltime,
-                j.get('tuner', ''),
-                state,
-                s_elapse,
-            )
-        )
+        repeat = j.get('repeat')
+
+        print('{:8} {:>3} {:10} {:24} {} {} {:5} {} {:3} {}'.format(
+            j.get('rj_id', ''),
+            chnum,
+            chname,
+            j.get('rj_title', ''),
+            starttime,
+            s_walltime,
+            repeat_state[repeat],
+            j.get('tuner', ''),
+            state,
+            s_elapse))
 
 def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
     """
@@ -401,6 +410,10 @@ def main():
         """
         録画ジョブを追加する
         """
+        if args.get('--repeat'):
+            repeat = args.get('--repeat')[0]
+        else:
+            repeat = ''
 
         # 引数チェック(チャンネル)
         ch = parse_channel(args.get('CH'))
@@ -422,7 +435,7 @@ def main():
         if not rectime:
             sys.exit(1)
 
-        jid = rec.add(ch, args.get('TITLE'), begin, rectime)
+        jid = rec.add(ch, args.get('TITLE'), begin, rectime, repeat)
         if jid:
             jobinfo = rec.get_job_info(jid=jid)
             print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
@@ -545,6 +558,35 @@ def main():
         print_joblist(origin, chinfo, dateline_hour, wormup_sec)
         print_joblist(changed, chinfo, dateline_hour, wormup_sec,
                       '(Recording time changed)')
+
+    elif args.get('setrep') or args.get('unsetrep'):
+        """
+        リピート条件をセット/アンセット
+        """
+        repeat_flag = ['weekly', 'daily', 'weekday', 'asadora']
+        if args.get('setrep'):
+            repeat = args.get('TYPE')
+            if repeat.lower() not in repeat_flag:
+                print('setrep TYPE:', ', '.join(repeat_flag))
+                sys.exit(1)
+            message = '(Set repeat flag)'
+        else:
+            repeat = ''
+            message = '(Unset repeat flag)'
+
+        jid = args.get('JOBID')
+
+        origin = rec.get_job_info(jid=jid)
+        if not origin:
+            print('No such jobid:', ', '.join(jid))
+            sys.exit(1)
+
+        begin = origin[0].get('rec_begin')
+        rec.change(origin, date=begin, repeat=repeat)
+        changed = rec.get_job_info(jid=jid)
+
+        # 変更後のジョブ情報を表示
+        print_joblist(changed, chinfo, dateline_hour, wormup_sec, message)
 
     elif args.get('listch'):
         """
