@@ -10,7 +10,7 @@ Usage:
   rj modbegin JOBID (DELTATIME | DATE TIME)
   rj totalrec JOBID RECORDINGTIME
   rj extendrec JOBID DELTATIME
-  rj chlist
+  rj listch
   rj -h | --help
 
 Options:
@@ -478,20 +478,20 @@ def main():
             if not delta:
                 print('invalid DELTATIME:', args.get('DELTATIME'))
                 sys.exit(1)
-            rec.modify(origin, delta=delta)
+            rec.change(origin, delta=delta)
         else:
             # 絶対時刻で変更
             begin = check_start_time(args.get('DATE'), args.get('TIME'))
             if not begin:
                 sys.exit(1)
-            rec.modify(origin, date=begin)
+            rec.change(origin, date=begin)
 
-        modified = rec.get_job_info(jid=jid)
+        changed = rec.get_job_info(jid=jid)
 
         # 変更前と変更後のジョブ情報を表示
         print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
-                      '(Start time modified)')
+        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+                      '(Start time changed)')
 
     elif args.get('totalrec'):
         """
@@ -511,13 +511,13 @@ def main():
             print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
             sys.exit(1)
 
-        rec.modify(origin, rectime=rectime)
-        modified = rec.get_job_info(jid=jid)
+        rec.change(origin, rectime=rectime)
+        changed = rec.get_job_info(jid=jid)
 
         # 変更前と変更後のジョブ情報を表示
         print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
-                      '(Recording time modified)')
+        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+                      '(Recording time changed)')
 
     elif args.get('extendrec'):
         """
@@ -538,15 +538,15 @@ def main():
             sys.exit(1)
         rectime = origin[0].get('walltime') + rectime_delta
 
-        rec.modify(origin, rectime=rectime)
-        modified = rec.get_job_info(jid=jid)
+        rec.change(origin, rectime=rectime)
+        changed = rec.get_job_info(jid=jid)
 
         # 変更前と変更後のジョブ情報を表示
         print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(modified, chinfo, dateline_hour, wormup_sec,
-                      '(Recording time modified)')
+        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+                      '(Recording time changed)')
 
-    elif args.get('chlist'):
+    elif args.get('listch'):
         """
         テレビ局名とチャンネル番号の一覧を表示する
         """

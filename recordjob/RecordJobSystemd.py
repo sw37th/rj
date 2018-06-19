@@ -163,7 +163,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
-    def modify(self, jobinfo=[], jid='', ch=None, rectime=None, date=None,
+    def change(self, jobinfo=[], jid='', ch=None, rectime=None, date=None,
                delta=None):
         """
         引数に応じてservice、timerユニットを再作成する
@@ -174,9 +174,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 jobinfo = self.get_job_info(jid=jid)
 
         if ch or rectime:
-            self._mod_service(jobinfo, ch, rectime)
+            self._change_service(jobinfo, ch, rectime)
         if date or delta:
-            self._mod_timer(jobinfo, date, delta)
+            self._change_timer(jobinfo, date, delta)
 
         # ユニット再読込
         try:
@@ -184,7 +184,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (CalledProcessError) as err:
             print('cannot reload unit:', err)
 
-    def _mod_service(self, jobinfo=[], ch=None, rectime=None):
+    def _change_service(self, jobinfo=[], ch=None, rectime=None):
         """
         録画ジョブのチャンネル、録画時間を変更する
         """
@@ -229,7 +229,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot change recording parameter:', err)
 
-    def _mod_timer(self, jobinfo=[], date=None, delta=None):
+    def _change_timer(self, jobinfo=[], date=None, delta=None):
         """
         録画ジョブの録画開始時刻を変更する
         """
