@@ -167,6 +167,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         units = []
         for i in jobinfo:
             units.append(i['timer']['Names'])
+            units.append(i['service']['Names'])
 
         # timer停止(ジョブ削除)
         self.systemctlstop.extend(units)
