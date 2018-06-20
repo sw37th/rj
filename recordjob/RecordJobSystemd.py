@@ -26,6 +26,16 @@ class RecordJobSystemd(recordjob.RecordJob):
             '--user',
             'stop',
         ]
+        self.systemctlenable = [
+            self.systemctl,
+            '--user',
+            'enable',
+        ]
+        self.systemctldisable = [
+            self.systemctl,
+            '--user',
+            'disable',
+        ]
         self.systemctlshow = [
             self.systemctl,
             '--user',
@@ -47,6 +57,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         ]
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.recpt1ctl = [self.recpt1ctl_path]
+        self.execstop = 'ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable {}"'
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
 Description={_suffix}:{_repeat}: timer unit for {_title}
@@ -56,6 +67,9 @@ CollectMode=inactive-or-failed
 AccuracySec=1s
 OnCalendar={_begin}
 RemainAfterElapse=no
+
+[Install]
+WantedBy=timers.target
 """
         self.template_service = """# created programmatically via rj. Do not edit.
 [Unit]
@@ -65,15 +79,17 @@ CollectMode=inactive-or-failed
 [Service]
 Environment="RJ_ch={_ch}" "RJ_walltime={_walltime}"
 ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}.`date +%%Y%%m%%d_%%H%%M.%%S`.$$$.ts"
+{_execstop}
 """
 
     def __str__(self):
         return self.name
 
-    def _create_timer(self, unitname, title, begin, repeat):
+    def _create_timer(self, unit, title, begin, repeat):
         """
         timerユニットファイル作成
         """
+        unitfile = self.unitdir + '/' + unit
         repeat = repeat.upper()
         if repeat == 'WEEKLY':
             str_begin = begin.strftime('%a *-*-* %H:%M:%S')
@@ -87,7 +103,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             str_begin = begin.strftime('%Y-%m-%d %H:%M:%S')
             repeat = 'ONESHOT'
 
-        with open(unitname, 'w') as f:
+        with open(unitfile, 'w') as f:
             f.write(
                 self.template_timer.format(
                     _suffix=self.prefix,
@@ -97,11 +113,20 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 )
             )
 
-    def _create_service(self, unitname, ch, title, rectime):
+    def _create_service(self, unit, ch, title, rectime, repeat):
         """
         # serviceユニットファイル作成
         """
-        with open(unitname, 'w') as f:
+        unitfile = self.unitdir + '/' + unit
+        if repeat:
+            execstop = ''
+        else:
+            # for ONESHOT
+            # serviceユニット実行後にtimerユニットをdisableに
+            unit = unit.rsplit('.', maxsplit=1)[0]
+            execstop = self.execstop.format(unit + '.timer')
+
+        with open(unitfile, 'w') as f:
             output = self.recdir + '/{}.{}'.format(title, ch)
             f.write(
                 self.template_service.format(
@@ -111,6 +136,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                     _walltime=str(int(rectime.total_seconds())),
                     _recpt1=' '.join(self.recpt1),
                     _output=output,
+                    _execstop=execstop,
                 )
             )
 
@@ -137,20 +163,20 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             begin.strftime('%Y%m%d%H%M%S'),
             tuner,
         )
-        unitfile_timer = self.unitdir + '/' + unit + '.timer'
-        unitfile_service = self.unitdir + '/' + unit + '.service'
 
         try:
-            self._create_timer(unitfile_timer, title, begin, repeat)
-            self._create_service(unitfile_service, ch, title, rectime)
+            self._create_timer(unit + '.timer', title, begin, repeat)
+            self._create_service(unit + '.service', ch, title, rectime, repeat)
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
             return ''
 
         # timer開始
         self.systemctlstart.append(unit + '.timer')
+        self.systemctlenable.append(unit + '.timer')
         try:
            run(self.systemctlstart, check=True)
+           run(self.systemctlenable, check=True)
         except (CalledProcessError) as err:
             print('cannot submit job:', err)
             return ''
@@ -164,15 +190,19 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         録画ジョブを削除する
         """
         jobinfo = self.get_job_info(jid=jid)
-        units = []
+        timers = []
+        services = []
         for i in jobinfo:
-            units.append(i['timer']['Names'])
-            units.append(i['service']['Names'])
+            timers.append(i['timer']['Names'])
+            services.append(i['service']['Names'])
 
         # timer停止(ジョブ削除)
-        self.systemctlstop.extend(units)
+        self.systemctlstop.extend(timers)
+        self.systemctlstop.extend(services)
+        self.systemctldisable.extend(timers)
         try:
            run(self.systemctlstop, check=True)
+           run(self.systemctldisable, check=True)
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
@@ -203,7 +233,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         for job in jobinfo:
             unit = job.get('service',{}).get('Names')
-            unitfile = job.get('service',{}).get('FragmentPath')
             title = job.get('rj_title')
 
             if not ch:
@@ -238,7 +267,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 # recpt1ctlで録画時間を変更した場合でも、
                 # systemctl showの出力に録画時間とチャンネルを
                 # 反映させるため、ここで再作成 & reloadする
-                self._create_service(unitfile, ch, title, rectime)
+                self._create_service(unit, ch, title, rectime)
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot change recording parameter:', err)
 
@@ -248,7 +277,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         for job in jobinfo:
             unit = job.get('timer',{}).get('Names')
-            unitfile = job.get('timer',{}).get('FragmentPath')
             title = job.get('rj_title')
 
             if date:
@@ -258,7 +286,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
             try:
                 # timerユニットファイル再作成
-                self._create_timer(unitfile, title, begin, repeat)
+                self._create_timer(unit, title, begin, repeat)
             except (PermissionError, FileNotFoundError) as err:
                 print('cannot change start time:', err)
 
