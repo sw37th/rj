@@ -122,7 +122,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             execstop = ''
         else:
             # for ONESHOT
-            # serviceユニット実行後にtimerユニットをdisableに
+            # serviceユニット実行後、ExecStopからsystemctl disable
+            # で当該ジョブのtimerユニットを無効化する
             unit = unit.rsplit('.', maxsplit=1)[0]
             execstop = self.execstop.format(unit + '.timer')
 
@@ -145,6 +146,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         recpt1コマンドを実行するserviceユニットファイルと
         そのserviceを指定時刻に実行するtimerユニットファイル
         を作成し、systemctl startでtimerを有効化する。
+
+        OS再起動を挟んでも実行予定timerが自動的に有効化
+        されるようsystemctl enableしておく。
         """
         jid = ''
         if int(ch) < 100:
