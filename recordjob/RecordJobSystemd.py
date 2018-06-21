@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime, timedelta
-from subprocess import run, Popen, PIPE, STDOUT, CalledProcessError
+from subprocess import run, Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
 import hashlib
 import os
 import recordjob
@@ -13,48 +13,20 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.name = 'RecordJobSystemd'
         self.prefix = 'RJ'
         self.unitdir = os.path.expanduser('~') + '/.config/systemd/user'
-        self.systemctl = 'systemctl'
         self.tuner_tt_num = 2
         self.tuner_bs_num = 2
-        self.systemctlstart = [
-            self.systemctl,
-            '--user',
-            'start',
-        ]
-        self.systemctlstop = [
-            self.systemctl,
-            '--user',
-            'stop',
-        ]
-        self.systemctlenable = [
-            self.systemctl,
-            '--user',
-            'enable',
-        ]
-        self.systemctldisable = [
-            self.systemctl,
-            '--user',
-            'disable',
-        ]
-        self.systemctlshow = [
-            self.systemctl,
-            '--user',
-            '--all',
-            '--no-pager',
-            'show',
-        ]
-        self.systemctlshowenv = [
-            self.systemctl,
-            '--user',
+        self.sctl = ['systemctl', '--user']
+        self.sctl_start = self.sctl + ['start']
+        self.sctl_stop = self.sctl + ['stop']
+        self.sctl_enable = self.sctl + ['enable']
+        self.sctl_disable = self.sctl + ['disable']
+        self.sctl_show = self.sctl + ['--all', '--no-pager', 'show']
+        self.sctl_showenv = self.sctl + [
             '--all',
             '--no-pager',
             'show-environment',
         ]
-        self.systemctlreload = [
-            self.systemctl,
-            '--user',
-            'daemon-reload',
-        ]
+        self.sctl_reload = self.sctl + ['daemon-reload']
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.recpt1ctl = [self.recpt1ctl_path]
         self.execstop = 'ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable {}"'
@@ -176,11 +148,11 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             return ''
 
         # timer開始
-        self.systemctlstart.append(unit + '.timer')
-        self.systemctlenable.append(unit + '.timer')
+        self.sctl_start.append(unit + '.timer')
+        self.sctl_enable.append(unit + '.timer')
         try:
-           run(self.systemctlstart, check=True)
-           run(self.systemctlenable, check=True)
+           run(self.sctl_start, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(self.sctl_enable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (CalledProcessError) as err:
             print('cannot submit job:', err)
             return ''
@@ -201,12 +173,12 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             services.append(i['service']['Names'])
 
         # timer停止(ジョブ削除)
-        self.systemctlstop.extend(timers)
-        self.systemctlstop.extend(services)
-        self.systemctldisable.extend(timers)
+        self.sctl_stop.extend(timers)
+        self.sctl_stop.extend(services)
+        self.sctl_disable.extend(timers)
         try:
-           run(self.systemctlstop, check=True)
-           run(self.systemctldisable, check=True)
+           run(self.sctl_stop, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(self.sctl_disable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
@@ -227,7 +199,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         # ユニット再読込
         try:
-           run(self.systemctlreload, check=True)
+           run(self.sctl_reload, check=True)
         except (CalledProcessError) as err:
             print('cannot reload unit:', err)
 
@@ -414,9 +386,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         ユニット毎にDictにまとめ、配列に詰めて返す
         """
         if showenv:
-            command = self.systemctlshowenv
+            command = self.sctl_showenv
         else:
-            command = self.systemctlshow
+            command = self.sctl_show
             if timer:
                 command.append(unit + '.timer')
             if service:
