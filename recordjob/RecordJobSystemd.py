@@ -57,11 +57,16 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def __str__(self):
         return self.name
 
-    def _create_timer(self, unit, title, begin, repeat):
+    def _is_bs(self, ch):
+        if int(ch) > 63:
+            return True
+        else:
+            return False
+
+    def _create_timer(self, unit, title, begin, repeat=''):
         """
         timerユニットファイル作成
         """
-        unitfile = self.unitdir + '/' + unit
         repeat = repeat.upper()
         if repeat == 'WEEKLY':
             str_begin = begin.strftime('%a *-*-* %H:%M:%S')
@@ -75,7 +80,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             str_begin = begin.strftime('%Y-%m-%d %H:%M:%S')
             repeat = 'ONESHOT'
 
-        with open(unitfile, 'w') as f:
+        with open(unit, 'w') as f:
             f.write(
                 self.template_timer.format(
                     _suffix=self.prefix,
@@ -85,21 +90,24 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 )
             )
 
-    def _create_service(self, unit, ch, title, rectime, repeat):
+    def _create_service(self, unit, ch, title, rectime, repeat=''):
         """
         # serviceユニットファイル作成
         """
-        unitfile = self.unitdir + '/' + unit
         if repeat:
             execstop = ''
         else:
             # for ONESHOT
             # serviceユニット実行後、ExecStopからsystemctl disable
             # で当該ジョブのtimerユニットを無効化する
-            unit = unit.rsplit('.', maxsplit=1)[0]
-            execstop = self.execstop.format(unit + '.timer')
+            timer = unit.rsplit('/', maxsplit=1)[1]
+            timer = timer.rsplit('.', maxsplit=1)[0] + '.timer'
+            execstop = self.execstop.format(timer)
 
-        with open(unitfile, 'w') as f:
+        if self._is_bs(ch):
+            self.recpt1.append('--lnb 15')
+
+        with open(unit, 'w') as f:
             output = self.recdir + '/{}.{}'.format(title, ch)
             f.write(
                 self.template_service.format(
@@ -123,13 +131,12 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         されるようsystemctl enableしておく。
         """
         jid = ''
-        if int(ch) < 100:
-            # for terrestrial television
-            tuner = 'tt'
-        else:
+        if self._is_bs(ch):
             # for broadcasting satellite
             tuner = 'bs'
-            self.recpt1.append('--lnb 15')
+        else:
+            # for terrestrial television
+            tuner = 'tt'
 
         # RJ.ch.title.YYYYMMDDhhmmss.tuner
         unit = '{}.{}.{}.{}.{}'.format(
@@ -140,9 +147,11 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             tuner,
         )
 
+        timer_file = self.unitdir + '/' + unit + '.timer'
+        service_file = self.unitdir + '/' + unit + '.service'
         try:
-            self._create_timer(unit + '.timer', title, begin, repeat)
-            self._create_service(unit + '.service', ch, title, rectime, repeat)
+            self._create_timer(timer_file, title, begin, repeat)
+            self._create_service(service_file, ch, title, rectime, repeat)
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
             return ''
@@ -208,7 +217,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         録画ジョブのチャンネル、録画時間を変更する
         """
         for job in jobinfo:
-            unit = job.get('service',{}).get('Names')
+            unit = job.get('service',{}).get('FragmentPath')
             title = job.get('rj_title')
 
             if not ch:
@@ -252,7 +261,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         録画ジョブの録画開始時刻を変更する
         """
         for job in jobinfo:
-            unit = job.get('timer',{}).get('Names')
+            unit = job.get('timer',{}).get('FragmentPath')
             title = job.get('rj_title')
 
             if date:
