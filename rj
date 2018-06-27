@@ -480,7 +480,7 @@ def main():
         """
         jid = args.get('JOBID')
 
-        origin = rec.get_job_info(jid=jid)
+        origin = rec.get_job_info(jid=jid)[0]
         if not origin:
             print('No such jobid:', ', '.join(jid))
             sys.exit(1)
@@ -491,19 +491,19 @@ def main():
             if not delta:
                 print('invalid DELTATIME:', args.get('DELTATIME'))
                 sys.exit(1)
-            rec.change(origin, delta=delta)
+            rec.change_begin_delta(origin, delta)
         else:
             # 絶対時刻で変更
             begin = check_start_time(args.get('DATE'), args.get('TIME'))
             if not begin:
                 sys.exit(1)
-            rec.change(origin, date=begin)
+            rec.change_begin(origin, begin)
 
-        changed = rec.get_job_info(jid=jid)
+        changed = rec.get_job_info(jid=jid)[0]
 
         # 変更前と変更後のジョブ情報を表示
-        print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
+        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
                       '(Start time changed)')
 
     elif args.get('totalrec'):
@@ -513,7 +513,7 @@ def main():
         """
         jid = args.get('JOBID')
 
-        origin = rec.get_job_info(jid=jid)
+        origin = rec.get_job_info(jid=jid)[0]
         if not origin:
             print('No such jobid:', ', '.join(jid))
             sys.exit(1)
@@ -524,12 +524,12 @@ def main():
             print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
             sys.exit(1)
 
-        rec.change(origin, rectime=rectime)
-        changed = rec.get_job_info(jid=jid)
+        rec.change_rec(origin, rectime)
+        changed = rec.get_job_info(jid=jid)[0]
 
         # 変更前と変更後のジョブ情報を表示
-        print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
+        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
                       '(Recording time changed)')
 
     elif args.get('extendrec'):
@@ -539,24 +539,24 @@ def main():
         """
         jid = args.get('JOBID')
 
-        origin = rec.get_job_info(jid=jid)
+        origin = rec.get_job_info(jid=jid)[0]
         if not origin:
             print('No such jobid:', ', '.join(jid))
             sys.exit(1)
 
         # 現在の録画時間と'RECORDINGTIME'の差分を新録画時間として設定
-        rectime_delta = parse_time_delta(args.get('DELTATIME'))
-        if not rectime_delta:
+        delta = parse_time_delta(args.get('DELTATIME'))
+        if not delta:
             print('invalid DELTATIME:', args.get('DELTATIME'))
             sys.exit(1)
-        rectime = origin[0].get('walltime') + rectime_delta
+        #rectime = origin[0].get('walltime') + rectime_delta # ここはrec.extend_rec()内で処理する予定
 
-        rec.change(origin, rectime=rectime)
-        changed = rec.get_job_info(jid=jid)
+        rec.extend_rec(origin, delta)
+        changed = rec.get_job_info(jid=jid)[0]
 
         # 変更前と変更後のジョブ情報を表示
-        print_joblist(origin, chinfo, dateline_hour, wormup_sec)
-        print_joblist(changed, chinfo, dateline_hour, wormup_sec,
+        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
+        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
                       '(Recording time changed)')
 
     elif args.get('setrep') or args.get('unsetrep'):
@@ -571,22 +571,22 @@ def main():
                 sys.exit(1)
             message = '(Set repeat flag)'
         else:
+            # アンセット
             repeat = ''
             message = '(Unset repeat flag)'
 
         jid = args.get('JOBID')
 
-        origin = rec.get_job_info(jid=jid)
+        origin = rec.get_job_info(jid=jid)[0]
         if not origin:
             print('No such jobid:', ', '.join(jid))
             sys.exit(1)
 
-        begin = origin[0].get('rec_begin')
-        rec.change(origin, date=begin, repeat=repeat)
-        changed = rec.get_job_info(jid=jid)
+        rec.change_repeat(origin, repeat)
+        changed = rec.get_job_info(jid=jid)[0]
 
         # 変更後のジョブ情報を表示
-        print_joblist(changed, chinfo, dateline_hour, wormup_sec, message)
+        print_joblist([changed], chinfo, dateline_hour, wormup_sec, message)
 
     elif args.get('listch'):
         """
