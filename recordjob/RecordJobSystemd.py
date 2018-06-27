@@ -191,89 +191,122 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
-    def change(self, jobinfo=[], jid='', ch=None, rectime=None, date=None,
-               delta=None, repeat=''):
+    def _unit_reload(self):
         """
-        引数に応じてservice、timerユニットを再作成する
-        引数なしの場合はsystemctl reloadのみを実行する
+        ユニットファイルを再読込する
         """
-        if not jobinfo:
-            if jid:
-                jobinfo = self.get_job_info(jid=jid)
-
-        if ch or rectime:
-            self._change_service(jobinfo, ch, rectime)
-        if date or delta:
-            self._change_timer(jobinfo, date, delta, repeat)
-
-        # ユニット再読込
         try:
            run(self.sctl_reload, check=True)
         except (CalledProcessError) as err:
             print('cannot reload unit:', err)
 
-    def _change_service(self, jobinfo=[], ch=None, rectime=None):
+    def change_begin(self, job, begin):
         """
-        録画ジョブのチャンネル、録画時間を変更する
+        録画ジョブの開始時刻を指定時刻に変更
         """
-        for job in jobinfo:
-            unit = job.get('service',{}).get('FragmentPath')
-            title = job.get('rj_title')
+        repeat = job.get('repeat')
+        self._change_timer(job, begin=begin, repeat=repeat)
+        self._unit_reload()
 
-            if not ch:
-                ch = job.get('channel')
-            if not rectime:
-                rectime = job.get('walltime')
+    def change_begin_delta(self, job, delta):
+        """
+        録画ジョブの開始時刻を相対的に変更
+        """
+        repeat = job.get('repeat')
+        begin = job.get('rec_begin') + delta
+        self._change_timer(job, begin=begin, repeat=repeat)
+        self._unit_reload()
 
-            state = job.get('record_state', '')
-            if state == 'Recording':
-                # すでにrecpt1コマンドを実行中の場合は
-                # recpt1ctlコマンドにて録画時間とチャンネルを
-                # 変更する
-                pid = job.get('service').get('MainPID')
-                self.recpt1ctl.extend([
-                    '--pid', pid,
-                    '--time', str(int(rectime.total_seconds())),
-                    '--channel', ch,
-                ])
-                try:
-                    ret = run(
-                        self.recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
-                        universal_newlines=True
-                    )
-                    print(ret.stdout)
+    def change_rec(self, job, rectime):
+        """
+        録画時間を指定時間に変更
+        """
+        repeat = job.get('repeat')
+        self._change_service(job, rectime=rectime, repeat=repeat)
+        self._unit_reload()
 
-                except (CalledProcessError) as err:
-                    print('cannot change recording time:', err)
-                    return
+    def extend_rec(self, job, delta):
+        """
+        録画時間を相対的に延長(短縮)
+        """
+        repeat = job.get('repeat')
+        rectime = job.get('walltime') + delta
+        self._change_service(job, rectime=rectime, repeat=repeat)
+        self._unit_reload()
 
+    def change_channel(self, job, ch):
+        """
+        チャンネルを変更
+        """
+        repeat = job.get('repeat')
+        self._change_service(job, ch=ch, repeat=repeat)
+        self._unit_reload()
+
+    def change_repeat(self, job, repeat):
+        """
+        リピート設定を変更
+        """
+        begin = job.get('rec_begin')
+        self._change_timer(job, begin, repeat=repeat)
+        self._change_service(job, repeat=repeat)
+        self._unit_reload()
+
+    def _change_service(self, job, ch=None, rectime=None, repeat=''):
+        """
+        録画ジョブのserviceユニットファイルを変更する
+        """
+        unit = job.get('service',{}).get('FragmentPath')
+        title = job.get('rj_title')
+
+        if not ch:
+            ch = job.get('channel')
+        if not rectime:
+            rectime = job.get('walltime')
+
+        state = job.get('record_state', '')
+        if state == 'Recording':
+            # すでにrecpt1コマンドを実行中の場合は
+            # recpt1ctlコマンドにて録画時間とチャンネルを
+            # 変更する
+            pid = job.get('service').get('MainPID')
+            args = [
+                '--pid', pid,
+                '--time', str(int(rectime.total_seconds())),
+                '--channel', ch,
+            ]
+            self.recpt1ctl.extend(args)
             try:
-                # serviceユニットファイル再作成
-                # recpt1ctlで録画時間を変更した場合でも、
-                # systemctl showの出力に録画時間とチャンネルを
-                # 反映させるため、ここで再作成 & reloadする
-                self._create_service(unit, ch, title, rectime)
-            except (PermissionError, FileNotFoundError) as err:
-                print('cannot change recording parameter:', err)
+                ret = run(
+                    self.recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
+                    universal_newlines=True
+                )
+                print(ret.stdout)
 
-    def _change_timer(self, jobinfo=[], date=None, delta=None, repeat=''):
+            except (CalledProcessError) as err:
+                print('cannot change recording time:', err)
+                return
+
+        try:
+            # serviceユニットファイル再作成
+            # recpt1ctlで録画時間を変更した場合でも、
+            # systemctl showの出力に録画時間とチャンネルを
+            # 反映させるため、ここで再作成する
+            self._create_service(unit, ch, title, rectime, repeat)
+        except (PermissionError, FileNotFoundError) as err:
+            print('cannot change recording parameter:', err)
+
+    def _change_timer(self, job, begin, repeat=''):
         """
-        録画ジョブの録画開始時刻を変更する
+        録画ジョブのtimerユニットファイルを変更する
         """
-        for job in jobinfo:
-            unit = job.get('timer',{}).get('FragmentPath')
-            title = job.get('rj_title')
+        unit = job.get('timer',{}).get('FragmentPath')
+        title = job.get('rj_title')
 
-            if date:
-                begin = date
-            elif delta:
-                begin = job.get('rec_begin') + delta
-
-            try:
-                # timerユニットファイル再作成
-                self._create_timer(unit, title, begin, repeat)
-            except (PermissionError, FileNotFoundError) as err:
-                print('cannot change start time:', err)
+        try:
+            # timerユニットファイル再作成
+            self._create_timer(unit, title, begin, repeat)
+        except (PermissionError, FileNotFoundError) as err:
+            print('cannot change start time:', err)
 
     def get_job_info(self, date=None, jid=[]):
         """
