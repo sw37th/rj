@@ -104,8 +104,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             timer = timer.rsplit('.', maxsplit=1)[0] + '.timer'
             execstop = self.execstop.format(timer)
 
+        recpt1 = self.recpt1[:]
         if self._is_bs(ch):
-            self.recpt1.append('--lnb 15')
+            recpt1.append('--lnb 15')
 
         with open(unit, 'w') as f:
             output = self.recdir + '/{}.{}'.format(title, ch)
@@ -115,7 +116,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                     _title=title,
                     _ch=ch,
                     _walltime=str(int(rectime.total_seconds())),
-                    _recpt1=' '.join(self.recpt1),
+                    _recpt1=' '.join(recpt1),
                     _output=output,
                     _execstop=execstop,
                 )
@@ -157,11 +158,14 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             return ''
 
         # timer開始
-        self.sctl_start.append(unit + '.timer')
-        self.sctl_enable.append(unit + '.timer')
+        sctl_start = self.sctl_start[:]
+        sctl_enable = self.sctl_enable[:]
+
+        sctl_start.append(unit + '.timer')
+        sctl_enable.append(unit + '.timer')
         try:
-           run(self.sctl_start, check=True, stdout=DEVNULL, stderr=STDOUT)
-           run(self.sctl_enable, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(sctl_start, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(sctl_enable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (CalledProcessError) as err:
             print('cannot submit job:', err)
             return ''
@@ -182,12 +186,15 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             services.append(i['service']['Names'])
 
         # timer停止(ジョブ削除)
-        self.sctl_stop.extend(timers)
-        self.sctl_stop.extend(services)
-        self.sctl_disable.extend(timers)
+        sctl_stop = self.sctl_stop[:]
+        sctl_disable = self.sctl_disable[:]
+
+        sctl_stop.extend(timers)
+        sctl_stop.extend(services)
+        sctl_disable.extend(timers)
         try:
-           run(self.sctl_stop, check=True, stdout=DEVNULL, stderr=STDOUT)
-           run(self.sctl_disable, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(sctl_stop, check=True, stdout=DEVNULL, stderr=STDOUT)
+           run(sctl_disable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
@@ -274,10 +281,11 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 '--time', str(int(rectime.total_seconds())),
                 '--channel', ch,
             ]
-            self.recpt1ctl.extend(args)
+            recpt1ctl = self.recpt1ctl[:]
+            recpt1ctl.extend(args)
             try:
                 ret = run(
-                    self.recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
+                    recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
                     universal_newlines=True
                 )
                 print(ret.stdout)
@@ -428,9 +436,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         ユニット毎にDictにまとめ、配列に詰めて返す
         """
         if showenv:
-            command = self.sctl_showenv
+            command = self.sctl_showenv[:]
         else:
-            command = self.sctl_show
+            command = self.sctl_show[:]
             if timer:
                 command.append(unit + '.timer')
             if service:
