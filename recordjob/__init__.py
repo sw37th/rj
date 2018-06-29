@@ -4,8 +4,8 @@ import yaml
 import os
 
 channel_file = '/home/autumn/work/rj/channel.yml'
-recpt1_path = '/usr/local/bin/recpt1'
-recpt1ctl_path = '/usr/local/bin/recpt1ctl'
+recpt1_path = 'recpt1'
+recpt1ctl_path = 'recpt1ctl'
 recdir = os.path.expanduser('~') + '/rec'
 comm_timeout = 10
 
