@@ -94,7 +94,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         # serviceユニットファイル作成
         """
-        if repeat:
+        if repeat and repeat.upper() != 'ONESHOT':
             execstop = ''
         else:
             # for ONESHOT
@@ -227,7 +227,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
     def extend_rec(self, job, delta):
         """
-        録画時間を相対的に延長(短縮)
+        録画時間を相対的に延長 or 短縮
         """
         repeat = job.get('repeat')
         rectime = job.get('walltime') + delta
