@@ -268,6 +268,27 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         self._change_service(job, repeat=repeat)
         self._unit_reload()
 
+    def _change_running_recpt1(self, pid, ch, rectime):
+        """
+        実行中のrecpt1プロセスの録画時間、チャンネルを
+        recpt1ctlコマンドで変更する
+        """
+        args = [
+            '--pid', pid,
+            '--channel', ch,
+            '--time', str(int(rectime.total_seconds())),
+        ]
+        recpt1ctl = self.recpt1ctl[:]
+        recpt1ctl.extend(args)
+        try:
+            ret = run(
+                recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
+                universal_newlines=True
+            )
+            print(ret.stdout)
+        except (CalledProcessError) as err:
+            print('cannot change recording time:', err)
+
     def _change_service(self, job, ch=None, rectime=None, repeat=''):
         """
         録画ジョブのserviceユニットファイルを変更する
@@ -286,23 +307,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             # recpt1ctlコマンドにて録画時間とチャンネルを
             # 変更する
             pid = job.get('service').get('MainPID')
-            args = [
-                '--pid', pid,
-                '--time', str(int(rectime.total_seconds())),
-                '--channel', ch,
-            ]
-            recpt1ctl = self.recpt1ctl[:]
-            recpt1ctl.extend(args)
-            try:
-                ret = run(
-                    recpt1ctl, check=True, stdout=PIPE, stderr=STDOUT,
-                    universal_newlines=True
-                )
-                print(ret.stdout)
-
-            except (CalledProcessError) as err:
-                print('cannot change recording time:', err)
-                return
+            self._change_running_recpt1(pid, ch, rectime)
 
         try:
             # serviceユニットファイル再作成
