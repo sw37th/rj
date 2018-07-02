@@ -203,8 +203,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         sctl_stop.extend(services)
         sctl_disable.extend(timers)
         try:
-           run(sctl_stop, check=True, stdout=DEVNULL, stderr=STDOUT)
-           run(sctl_disable, check=True, stdout=DEVNULL, stderr=STDOUT)
+            run(sctl_stop, check=True, stdout=DEVNULL, stderr=STDOUT)
+            run(sctl_disable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (CalledProcessError) as err:
             print('cannot delete job:', err)
 
@@ -213,7 +213,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         ユニットファイルを再読込する
         """
         try:
-           run(self.sctl_reload, check=True)
+            run(self.sctl_reload, check=True)
         except (CalledProcessError) as err:
             print('cannot reload unit:', err)
 
