@@ -122,16 +122,11 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 )
             )
 
-    def add(self, ch, title, begin, rectime, repeat=''):
+    def _gen_unitname_jobid(self, ch, title, begin):
         """
-        recpt1コマンドを実行するserviceユニットファイルと
-        そのserviceを指定時刻に実行するtimerユニットファイル
-        を作成し、systemctl startでtimerを有効化する。
-
-        OS再起動を挟んでも実行予定timerが自動的に有効化
-        されるようsystemctl enableしておく。
+        チャンネル、タイトル、開始時間から
+        ユニット名を生成する
         """
-        jid = ''
         if self._is_bs(ch):
             # for broadcasting satellite
             tuner = 'bs'
@@ -147,6 +142,21 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             begin.strftime('%Y%m%d%H%M%S'),
             tuner,
         )
+        # ユニット名のsha256ハッシュをジョブIDとする
+        rj_id_long = hashlib.sha256(unit.encode('utf-8')).hexdigest()
+
+        return unit, rj_id_long
+
+    def add(self, ch, title, begin, rectime, repeat=''):
+        """
+        recpt1コマンドを実行するserviceユニットファイルと
+        そのserviceを指定時刻に実行するtimerユニットファイル
+        を作成し、systemctl startでtimerを有効化する。
+
+        OS再起動を挟んでも実行予定timerが自動的に有効化
+        されるようsystemctl enableしておく。
+        """
+        unit, rj_id_long = self._gen_unitname_jobid(ch, title, begin)
 
         timer_file = self.unitdir + '/' + unit + '.timer'
         service_file = self.unitdir + '/' + unit + '.service'
@@ -170,8 +180,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             print('cannot submit job:', err)
             return ''
 
-        # ユニット名のsha256ハッシュをジョブIDとして返す
-        rj_id_long = hashlib.sha256(unit.encode('utf-8')).hexdigest()
         return rj_id_long
 
     def remove(self, jid=[]):
