@@ -151,34 +151,36 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         recpt1コマンドを実行するserviceユニットファイルと
         そのserviceを指定時刻に実行するtimerユニットファイル
-        を作成し、systemctl startでtimerを有効化する。
+        を作成する。
 
-        OS再起動を挟んでも実行予定timerが自動的に有効化
-        されるようsystemctl enableしておく。
+        timerユニットはsystemd startで有効化する。
+        また、OS再起動後も自動的に有効化されるよう
+        systemd enableする。
         """
         unit, rj_id_long = self._gen_unitname_jobid(ch, title, begin)
 
-        timer_file = self.unitdir + '/' + unit + '.timer'
-        service_file = self.unitdir + '/' + unit + '.service'
         try:
+            # timer/serviceユニットファイル作成
+            timer_file = self.unitdir + '/' + unit + '.timer'
+            service_file = self.unitdir + '/' + unit + '.service'
+
             self._create_timer(timer_file, title, begin, repeat)
             self._create_service(service_file, ch, title, rectime, repeat)
+
+            # timerユニットをsystemctl start, enabled
+            sctl_start = self.sctl_start[:]
+            sctl_enable = self.sctl_enable[:]
+            sctl_start.append(unit + '.timer')
+            sctl_enable.append(unit + '.timer')
+
+            run(sctl_start, check=True, stdout=DEVNULL, stderr=STDOUT)
+            run(sctl_enable, check=True, stdout=DEVNULL, stderr=STDOUT)
         except (PermissionError, FileNotFoundError) as err:
             print('cannot create unit file:', err)
-            return ''
-
-        # timer開始
-        sctl_start = self.sctl_start[:]
-        sctl_enable = self.sctl_enable[:]
-
-        sctl_start.append(unit + '.timer')
-        sctl_enable.append(unit + '.timer')
-        try:
-           run(sctl_start, check=True, stdout=DEVNULL, stderr=STDOUT)
-           run(sctl_enable, check=True, stdout=DEVNULL, stderr=STDOUT)
-        except (CalledProcessError) as err:
+            rj_id_long = ''
+        except CalledProcessError as err:
             print('cannot submit job:', err)
-            return ''
+            rj_id_long = ''
 
         return rj_id_long
 
