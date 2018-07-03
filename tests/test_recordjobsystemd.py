@@ -1,11 +1,28 @@
-from unittest import TestCase, mock
+from unittest import TestCase
 from recordjob import RecordJobSystemd as rjs
 from io import StringIO
-from unittest.mock import mock_open, patch
+from unittest.mock import mock_open, patch, MagicMock, call
 from datetime import datetime, timedelta
+from subprocess import PIPE, STDOUT, DEVNULL
 
 
 begin = datetime(2018, 6, 30, 00, 00, 00)
+rectime = timedelta(seconds=1770)
+unit_tt = 'RJ.15.test.20180630000000.tt'
+unit_tt_id = '6728ed28435be863a9ee453ecc391f2f6415aada2dc01d61643c2f25dac9f095'
+start_timer = [
+    'systemctl',
+    '--user',
+    'start',
+    unit_tt + '.timer'
+]
+enable_timer = [
+    'systemctl',
+    '--user',
+    'enable',
+    unit_tt + '.timer'
+]
+
 
 class RecordJobSystemdTest(TestCase):
     def setUp(self):
@@ -74,7 +91,6 @@ WantedBy=timers.target
         repeatフラグとOnCalendarフォーマットのペアが適正か
         """
         unit = self.rec.unitdir + '/test.service'
-        rectime = timedelta(seconds=1770)
         service_bs_repeat = """\
 # created programmatically via rj. Do not edit.
 [Unit]
@@ -151,14 +167,35 @@ ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
             f.write.assert_any_call(service_tt_repeat)
 
     def test_is_bs(self):
-        # 64~  ... expect True
-        # 1-63 ... expect False
+        """
+        64~  ... expect True
+        1-63 ... expect False
+        """
         self.assertTrue(self.rec._is_bs(64))
         self.assertFalse(self.rec._is_bs(63))
 
     def test_gen_unitname_jobid(self):
         unit, rj_id_long = self.rec._gen_unitname_jobid('15', 'test', begin)
-        expect_unit = 'RJ.15.test.20180630000000.tt'
-        expect_id = '6728ed28435be863a9ee453ecc391f2f6415aada2dc01d61643c2f25dac9f095'
+        expect_unit = unit_tt
+        expect_id = unit_tt_id
         self.assertEqual(expect_unit, unit)
         self.assertEqual(expect_id, rj_id_long)
+
+    @patch('recordjob.RecordJobSystemd.run')
+    def test_add(self, m_run):
+        expect_unit_timer = self.rec.unitdir + '/' + unit_tt + '.timer'
+        expect_unit_service = self.rec.unitdir + '/' + unit_tt + '.service'
+        expect_calls_run = [
+            call(start_timer, check=True, stderr=STDOUT, stdout=DEVNULL),
+            call(enable_timer, check=True, stderr=STDOUT, stdout=DEVNULL),]
+
+        self.rec._create_timer = MagicMock()
+        self.rec._create_service = MagicMock()
+
+        self.rec.add('15', 'test', begin, rectime, 'WEEKLY')
+
+        self.rec._create_timer.assert_called_with(
+            expect_unit_timer, 'test', begin, 'WEEKLY')
+        self.rec._create_service.assert_called_with(
+            expect_unit_service, '15', 'test', rectime, 'WEEKLY')
+        m_run.assert_has_calls(expect_calls_run)
