@@ -1,6 +1,5 @@
 from unittest import TestCase
 from recordjob import RecordJobSystemd as rjs
-from io import StringIO
 from unittest.mock import mock_open, patch, MagicMock, call
 from datetime import datetime, timedelta
 from subprocess import PIPE, STDOUT, DEVNULL
