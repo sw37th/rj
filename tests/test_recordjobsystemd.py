@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from unittest import TestCase
 from recordjob import RecordJobSystemd as rjs
 from unittest.mock import mock_open, patch, MagicMock, call
@@ -9,13 +11,13 @@ begin = datetime(2018, 6, 30, 00, 00, 00)
 rectime = timedelta(seconds=1770)
 unit_tt = 'RJ.15.test.20180630000000.tt'
 unit_tt_id = '6728ed28435be863a9ee453ecc391f2f6415aada2dc01d61643c2f25dac9f095'
-expect_sctl_start_timer = [
+expect_sctl_start = [
     'systemctl',
     '--user',
     'start',
     unit_tt + '.timer'
 ]
-expect_sctl_enable_timer = [
+expect_sctl_enable = [
     'systemctl',
     '--user',
     'enable',
@@ -79,6 +81,71 @@ Environment="RJ_ch=15" "RJ_walltime=1770"
 ExecStart=@/bin/bash "/bin/bash" "-c" "recpt1 --b25 --strip $$RJ_ch $$RJ_walltime {_recdir}/dummyservice.15.`date +%%Y%%m%%d_%%H%%M.%%S`.$$$.ts"
 ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
 """
+dummy_unitdir = '/home/dummy/.config/systemd/user/'
+dummy_job_waiting_ids = ['d39bb99c', '6095bb27']
+dummy_job_waiting = [
+    {
+        'tuner': 'tt',
+        'timer': {
+            'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            'NextElapseUSecRealtime': 'Tue 2018-07-10 01:38:50 JST',
+            'Description': 'RJ:WEEKLY: timer unit for yamanosusume_3rd',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            },
+        'service': {
+            'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            'Environment': 'RJ_ch=15 RJ_walltime=960',
+            'FragmentPath':dummy_unitdir + \
+                'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            },
+        'rec_begin': datetime(2018, 7, 10, 1, 38, 50),
+        'channel': '15',
+        'walltime': timedelta(0, 960),
+        'rec_end': datetime(2018, 7, 10, 1, 54, 50),
+        'user': 'autumn',
+        'rj_title': 'yamanosusume_3rd',
+        'rj_id_long': 'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
+        'rj_id': 'd39bb99c',
+        'repeat': 'WEEKLY'},
+    {
+        'tuner': 'bs',
+        'timer': {
+            'Names': 'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',
+            'NextElapseUSecRealtime': 'Tue 2018-07-10 02:28:50 JST',
+            'Description': 'RJ:WEEKLY: timer unit for yamanosusume_3rd',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',
+            },
+        'service': {
+            'Names': 'RJ.211.yamanosusume_3rd.20180703022850.bs.service',
+            'Environment': 'RJ_ch=211 RJ_walltime=960',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.211.yamanosusume_3rd.20180703022850.bs.service',
+            },
+        'rec_begin': datetime(2018, 7, 10, 2, 28, 50),
+        'channel': '211',
+        'walltime': timedelta(0, 960),
+        'rec_end': datetime(2018, 7, 10, 2, 44, 50),
+        'user': 'autumn',
+        'rj_title': 'yamanosusume_3rd',
+        'rj_id_long': '6095bb2745368511247217865f47f09cd874f27eeda5a7c960c222bf8003e2c7',
+        'rj_id': '6095bb27',
+        'repeat': 'WEEKLY'}]
+expect_sctl_stop = [
+    'systemctl',
+    '--user',
+    'stop',
+    'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+    'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',
+    'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+    'RJ.211.yamanosusume_3rd.20180703022850.bs.service',]
+expect_sctl_disable = [
+    'systemctl',
+    '--user',
+    'disable',
+    'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+    'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',]
 
 class RecordJobSystemdTest(TestCase):
     def setUp(self):
@@ -218,12 +285,12 @@ class RecordJobSystemdTest(TestCase):
         expect_unit_service = self.rec.unitdir + '/' + unit_tt + '.service'
         expect_calls_run = [
             call(
-                expect_sctl_start_timer,
+                expect_sctl_start,
                 check=True,
                 stderr=STDOUT,
                 stdout=DEVNULL),
             call(
-                expect_sctl_enable_timer,
+                expect_sctl_enable,
                 check=True,
                 stderr=STDOUT,
                 stdout=DEVNULL),
@@ -240,5 +307,22 @@ class RecordJobSystemdTest(TestCase):
             expect_unit_service, '15', 'test', rectime, 'WEEKLY')
         m_run.assert_has_calls(expect_calls_run)
 
-    #@patch('recordjob.RecordJobSystemd.run')
-    #def test_remove(self, m_run):
+    @patch('recordjob.RecordJobSystemd.run')
+    def test_remove(self, m_run):
+        self.rec.get_job_info = MagicMock()
+        self.rec.get_job_info.return_value = dummy_job_waiting
+        expect_calls_run = [
+            call(
+                expect_sctl_stop,
+                check=True,
+                stderr=STDOUT,
+                stdout=DEVNULL),
+            call(
+                expect_sctl_disable,
+                check=True,
+                stderr=STDOUT,
+                stdout=DEVNULL),
+        ]
+
+        self.rec.remove(dummy_job_waiting_ids)
+        m_run.assert_has_calls(expect_calls_run)
