@@ -132,6 +132,32 @@ dummy_job_waiting = [
         'rj_id_long': '6095bb2745368511247217865f47f09cd874f27eeda5a7c960c222bf8003e2c7',
         'rj_id': '6095bb27',
         'repeat': 'WEEKLY'}]
+dummy_job_running = [
+    {
+        'tuner': 'tt',
+        'timer': {
+            'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            'LastTriggerUSec': 'Tue 2018-07-10 01:38:50 JST'
+            'Description': 'RJ:WEEKLY: timer unit for yamanosusume_3rd',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            },
+        'service': {
+            'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            'Environment': 'RJ_ch=15 RJ_walltime=960',
+            'MainPID': '8419'
+            'FragmentPath':dummy_unitdir + \
+                'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            },
+        'rec_begin': datetime(2018, 7, 10, 1, 38, 50),
+        'channel': '15',
+        'walltime': timedelta(0, 960),
+        'rec_end': datetime(2018, 7, 10, 1, 54, 50),
+        'user': 'autumn',
+        'rj_title': 'yamanosusume_3rd',
+        'rj_id_long': 'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
+        'rj_id': 'd39bb99c',
+        'repeat': 'WEEKLY'}]
 expect_sctl_stop = [
     'systemctl',
     '--user',
