@@ -137,7 +137,7 @@ dummy_job_running = [
         'tuner': 'tt',
         'timer': {
             'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
-            'LastTriggerUSec': 'Tue 2018-07-10 01:38:50 JST'
+            'LastTriggerUSec': 'Tue 2018-07-10 01:38:50 JST',
             'Description': 'RJ:WEEKLY: timer unit for yamanosusume_3rd',
             'FragmentPath': dummy_unitdir + \
                 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
@@ -145,7 +145,7 @@ dummy_job_running = [
         'service': {
             'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
             'Environment': 'RJ_ch=15 RJ_walltime=960',
-            'MainPID': '8419'
+            'MainPID': '8419',
             'FragmentPath':dummy_unitdir + \
                 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
             },
@@ -172,6 +172,10 @@ expect_sctl_disable = [
     'disable',
     'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
     'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',]
+expect_sctl_reload = [
+    'systemctl',
+    '--user',
+    'daemon-reload',]
 
 class RecordJobSystemdTest(TestCase):
     def setUp(self):
@@ -352,3 +356,8 @@ class RecordJobSystemdTest(TestCase):
 
         self.rec.remove(dummy_job_waiting_ids)
         m_run.assert_has_calls(expect_calls_run)
+
+    @patch('recordjob.RecordJobSystemd.run')
+    def test_unit_reload(self, m_run):
+        self.rec._unit_reload()
+        m_run.assert_called_with(expect_sctl_reload, check=True)
