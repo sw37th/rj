@@ -222,7 +222,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         録画ジョブの開始時刻を指定時刻に変更
         """
         repeat = job.get('repeat')
-        self._change_timer(job, begin=begin, repeat=repeat)
+        self._change_timer(job, begin, repeat=repeat)
         self._unit_reload()
 
     def change_begin_delta(self, job, delta):
@@ -231,7 +231,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         repeat = job.get('repeat')
         begin = job.get('rec_begin') + delta
-        self._change_timer(job, begin=begin, repeat=repeat)
+        self._change_timer(job, begin, repeat=repeat)
         self._unit_reload()
 
     def change_rec(self, job, rectime):
