@@ -371,7 +371,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_begin(job, begin)
 
         self.rec._change_timer.assert_called_with(
-            job, begin=begin, repeat='WEEKLY')
+            job, begin, repeat='WEEKLY')
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_begin_delta(self):
@@ -385,7 +385,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_begin_delta(job, delta)
 
         self.rec._change_timer.assert_called_with(
-            job, begin=expect_begin, repeat='WEEKLY')
+            job, expect_begin, repeat='WEEKLY')
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_rec(self):
@@ -435,8 +435,6 @@ class RecordJobSystemdTest(TestCase):
 
         self.rec.change_repeat(job, 'ONESHOT')
 
-        #self.rec._change_timer.assert_called_with(
-        #    job, begin=datetime(2018, 7, 10, 1, 38, 50), repeat='ONESHOT')
         self.rec._change_timer.assert_called_with(
             job, datetime(2018, 7, 10, 1, 38, 50), repeat='ONESHOT')
         self.rec._change_service.assert_called_with(
