@@ -361,3 +361,84 @@ class RecordJobSystemdTest(TestCase):
     def test_unit_reload(self, m_run):
         self.rec._unit_reload()
         m_run.assert_called_with(expect_sctl_reload, check=True)
+
+    def test_change_begin(self):
+        self.rec._change_timer = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        job = dummy_job_waiting[0]
+
+        self.rec.change_begin(job, begin)
+
+        self.rec._change_timer.assert_called_with(
+            job, begin=begin, repeat='WEEKLY')
+        self.assertTrue(self.rec._unit_reload.called)
+
+    def test_change_begin_delta(self):
+        self.rec._change_timer = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        delta = timedelta(seconds=300)
+        job = dummy_job_waiting[0]
+        expect_begin = datetime(2018, 7, 10, 1, 38, 50) + delta
+
+        self.rec.change_begin_delta(job, delta)
+
+        self.rec._change_timer.assert_called_with(
+            job, begin=expect_begin, repeat='WEEKLY')
+        self.assertTrue(self.rec._unit_reload.called)
+
+    def test_change_rec(self):
+        self.rec._change_service = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        job = dummy_job_waiting[0]
+
+        self.rec.change_rec(job, rectime)
+
+        self.rec._change_service.assert_called_with(
+            job, rectime=rectime, repeat='WEEKLY')
+        self.assertTrue(self.rec._unit_reload.called)
+
+    def test_extend_rec(self):
+        self.rec._change_service = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        delta = timedelta(seconds=300)
+        job = dummy_job_waiting[0]
+        expect_rectime = timedelta(seconds=960) + delta
+
+        self.rec.extend_rec(job, delta)
+
+        self.rec._change_service.assert_called_with(
+            job, rectime=expect_rectime, repeat='WEEKLY')
+        self.assertTrue(self.rec._unit_reload.called)
+
+    def test_change_channel(self):
+        self.rec._change_service = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        job = dummy_job_waiting[0]
+
+        self.rec.change_channel(job, '25')
+
+        self.rec._change_service.assert_called_with(
+            job, ch='25', repeat='WEEKLY')
+        self.assertTrue(self.rec._unit_reload.called)
+
+    def test_change_repeat(self):
+        self.rec._change_timer = MagicMock()
+        self.rec._change_service = MagicMock()
+        self.rec._unit_reload = MagicMock()
+
+        job = dummy_job_waiting[0]
+
+        self.rec.change_repeat(job, 'ONESHOT')
+
+        #self.rec._change_timer.assert_called_with(
+        #    job, begin=datetime(2018, 7, 10, 1, 38, 50), repeat='ONESHOT')
+        self.rec._change_timer.assert_called_with(
+            job, datetime(2018, 7, 10, 1, 38, 50), repeat='ONESHOT')
+        self.rec._change_service.assert_called_with(
+            job, repeat='ONESHOT')
+        self.assertTrue(self.rec._unit_reload.called)
