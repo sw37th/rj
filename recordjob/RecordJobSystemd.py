@@ -221,42 +221,37 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         録画ジョブの開始時刻を指定時刻に変更
         """
-        repeat = job.get('repeat')
-        self._change_timer(job, begin, repeat=repeat)
+        self._change_timer(job, begin)
         self._unit_reload()
 
     def change_begin_delta(self, job, delta):
         """
         録画ジョブの開始時刻を相対的に変更
         """
-        repeat = job.get('repeat')
         begin = job.get('rec_begin') + delta
-        self._change_timer(job, begin, repeat=repeat)
+        self._change_timer(job, begin)
         self._unit_reload()
 
     def change_rec(self, job, rectime):
         """
         録画時間を指定時間に変更
         """
-        repeat = job.get('repeat')
-        self._change_service(job, rectime=rectime, repeat=repeat)
+        self._change_service(job, rectime=rectime)
         self._unit_reload()
 
     def extend_rec(self, job, delta):
         """
         録画時間を相対的に延長 or 短縮
         """
-        repeat = job.get('repeat')
         rectime = job.get('walltime') + delta
-        self._change_service(job, rectime=rectime, repeat=repeat)
+        self._change_service(job, rectime=rectime)
         self._unit_reload()
 
     def change_channel(self, job, ch):
         """
         チャンネルを変更
         """
-        repeat = job.get('repeat')
-        self._change_service(job, ch=ch, repeat=repeat)
+        self._change_service(job, ch=ch)
         self._unit_reload()
 
     def change_repeat(self, job, repeat):
@@ -300,6 +295,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             ch = job.get('channel')
         if not rectime:
             rectime = job.get('walltime')
+        if not repeat:
+            repeat = job.get('repeat')
 
         state = job.get('record_state', '')
         if state == 'Recording':
@@ -324,6 +321,8 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         unit = job.get('timer',{}).get('FragmentPath')
         title = job.get('rj_title')
+        if not repeat:
+            repeat = job.get('repeat')
 
         try:
             # timerユニットファイル再作成
