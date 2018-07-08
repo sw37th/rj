@@ -149,6 +149,7 @@ dummy_job_running = [
             'FragmentPath':dummy_unitdir + \
                 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
             },
+        'record_state': 'Recording',
         'rec_begin': datetime(2018, 7, 10, 1, 38, 50),
         'channel': '15',
         'walltime': timedelta(0, 960),
@@ -371,7 +372,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_begin(job, begin)
 
         self.rec._change_timer.assert_called_with(
-            job, begin, repeat='WEEKLY')
+            job, begin)
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_begin_delta(self):
@@ -385,7 +386,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_begin_delta(job, delta)
 
         self.rec._change_timer.assert_called_with(
-            job, expect_begin, repeat='WEEKLY')
+            job, expect_begin)
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_rec(self):
@@ -397,7 +398,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_rec(job, rectime)
 
         self.rec._change_service.assert_called_with(
-            job, rectime=rectime, repeat='WEEKLY')
+            job, rectime=rectime)
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_extend_rec(self):
@@ -411,7 +412,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.extend_rec(job, delta)
 
         self.rec._change_service.assert_called_with(
-            job, rectime=expect_rectime, repeat='WEEKLY')
+            job, rectime=expect_rectime)
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_channel(self):
@@ -423,7 +424,7 @@ class RecordJobSystemdTest(TestCase):
         self.rec.change_channel(job, '25')
 
         self.rec._change_service.assert_called_with(
-            job, ch='25', repeat='WEEKLY')
+            job, ch='25')
         self.assertTrue(self.rec._unit_reload.called)
 
     def test_change_repeat(self):
@@ -440,3 +441,115 @@ class RecordJobSystemdTest(TestCase):
         self.rec._change_service.assert_called_with(
             job, repeat='ONESHOT')
         self.assertTrue(self.rec._unit_reload.called)
+
+    @patch('recordjob.RecordJobSystemd.run')
+    @patch('recordjob.RecordJobSystemd.print')
+    def test_change_running_recpt1(self, m_print, m_run):
+        expect_command = [
+            'recpt1ctl', '--pid', '8419', '--channel', '15', '--time', '1770']
+
+        self.rec._change_running_recpt1('8419', '15', rectime)
+
+        m_run.assert_called_with(
+            expect_command,
+            check=True,
+            stdout=PIPE,
+            stderr=STDOUT,
+            universal_newlines=True)
+
+    @patch('recordjob.RecordJobSystemd.print')
+    def test_change_service(self, m_print):
+        self.rec._create_service = MagicMock()
+        self.rec._change_running_recpt1 = MagicMock()
+
+        # 待機中のジョブに対する変更
+        job = dummy_job_waiting[0]
+
+        # チャンネル変更
+        self.rec._change_service(job, ch='20')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '20',
+            'yamanosusume_3rd',
+            timedelta(seconds=960),
+            'WEEKLY')
+        self.rec._change_running_recpt1.assert_not_called()
+        self.rec._change_running_recpt1.reset_mock()
+
+
+        # 録画時間変更
+        self.rec._change_service(job, rectime=timedelta(seconds=1770))
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '15',
+            'yamanosusume_3rd',
+            timedelta(seconds=1770),
+            'WEEKLY')
+        self.rec._change_running_recpt1.assert_not_called()
+        self.rec._change_running_recpt1.reset_mock()
+
+        # リピートフラグ変更
+        self.rec._change_service(job, repeat='DAILY')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '15',
+            'yamanosusume_3rd',
+            timedelta(seconds=960),
+            'DAILY')
+        self.rec._change_running_recpt1.assert_not_called()
+        self.rec._change_running_recpt1.reset_mock()
+
+        # 録画中のジョブに対する変更
+        job = dummy_job_running[0]
+
+        # チャンネル変更
+        self.rec._change_service(job, ch='20')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '20',
+            'yamanosusume_3rd',
+            timedelta(seconds=960),
+            'WEEKLY')
+        self.rec._change_running_recpt1.assert_called_with(
+            '8419',
+            '20',
+            timedelta(seconds=960))
+        self.rec._change_running_recpt1.reset_mock()
+
+        # 録画時間変更
+        self.rec._change_service(job, rectime=timedelta(seconds=1770))
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '15',
+            'yamanosusume_3rd',
+            timedelta(seconds=1770),
+            'WEEKLY')
+        self.rec._change_running_recpt1.assert_called_with(
+            '8419',
+            '15',
+            timedelta(seconds=1770))
+        self.rec._change_running_recpt1.reset_mock()
+
+        # リピートフラグ変更
+        self.rec._change_service(job, repeat='DAILY')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '15',
+            'yamanosusume_3rd',
+            timedelta(seconds=960),
+            'DAILY')
+        self.rec._change_running_recpt1.assert_called_with(
+            '8419',
+            '15',
+            timedelta(seconds=960))
+        self.rec._change_running_recpt1.reset_mock()
+
+    def test_change_timer(self):
+        self.rec._create_timer = MagicMock()
+        job = dummy_job_waiting[0]
+        self.rec._change_timer(job, begin, repeat='WEEKLY')
+        self.rec._create_timer.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            'yamanosusume_3rd',
+            begin,
+            'WEEKLY')
