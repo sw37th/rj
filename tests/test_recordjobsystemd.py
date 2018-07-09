@@ -530,7 +530,8 @@ class RecordJobSystemdTest(TestCase):
             timedelta(seconds=1770))
         self.rec._change_running_recpt1.reset_mock()
 
-        # リピートフラグ変更
+        # リピートフラグのみ変更
+        # このケースでは_change_running_recpt1()は呼ばれない
         self.rec._change_service(job, repeat='DAILY')
         self.rec._create_service.assert_called_with(
             dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
@@ -538,10 +539,51 @@ class RecordJobSystemdTest(TestCase):
             'yamanosusume_3rd',
             timedelta(seconds=960),
             'DAILY')
+        self.rec._change_running_recpt1.assert_not_called()
+        self.rec._change_running_recpt1.reset_mock()
+
+        # チャンネルとリピートフラグ変更
+        self.rec._change_service(job, ch='20', repeat='DAILY')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '20',
+            'yamanosusume_3rd',
+            timedelta(seconds=960),
+            'DAILY')
+        self.rec._change_running_recpt1.assert_called_with(
+            '8419',
+            '20',
+            timedelta(seconds=960))
+        self.rec._change_running_recpt1.reset_mock()
+
+        # 録画時間とリピートフラグ変更
+        self.rec._change_service(
+            job, rectime=timedelta(seconds=1770), repeat='DAILY')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '15',
+            'yamanosusume_3rd',
+            timedelta(seconds=1770),
+            'DAILY')
         self.rec._change_running_recpt1.assert_called_with(
             '8419',
             '15',
-            timedelta(seconds=960))
+            timedelta(seconds=1770))
+        self.rec._change_running_recpt1.reset_mock()
+
+        # チャンネルと録画時間とリピートフラグ変更
+        self.rec._change_service(
+            job, ch='20', rectime=timedelta(seconds=1770), repeat='DAILY')
+        self.rec._create_service.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
+            '20',
+            'yamanosusume_3rd',
+            timedelta(seconds=1770),
+            'DAILY')
+        self.rec._change_running_recpt1.assert_called_with(
+            '8419',
+            '20',
+            timedelta(seconds=1770))
         self.rec._change_running_recpt1.reset_mock()
 
     def test_change_timer(self):
