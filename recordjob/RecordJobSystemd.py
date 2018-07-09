@@ -184,11 +184,15 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return rj_id_long
 
-    def remove(self, jid=[]):
+    def remove(self, jid=''):
         """
         録画ジョブを削除する
         """
         jobinfo = self.get_job_info(jid=jid)
+        if not jobinfo:
+            print('no such jobid:', jid)
+            return
+
         timers = []
         services = []
         for i in jobinfo:
