@@ -605,3 +605,28 @@ class RecordJobSystemdTest(TestCase):
             'yamanosusume_3rd',
             begin,
             'DAILY')
+
+    def test_get_job_info(self):
+        self.rec._get_systemd_job_info = MagicMock()
+        self.rec._get_systemd_job_info.return_value = dummy_job_waiting
+        self.maxDiff = None
+        jid_tt = (
+            'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
+            'd39bb99c',)
+        jid_bs = (
+            '6095bb2745368511247217865f47f09cd874f27eeda5a7c960c222bf8003e2c7',
+            '6095bb27',)
+
+        # 引数無指定でジョブ情報を取得
+        jobinfo = self.rec.get_job_info()
+        self.assertEqual(dummy_job_waiting, jobinfo)
+
+        # ジョブIDを指定してジョブ情報を取得
+        expect_jobinfo = [dummy_job_waiting[0]]
+        for i in jid_tt:
+            jobinfo = self.rec.get_job_info(jid=i)
+            self.assertEqual(expect_jobinfo, jobinfo)
+        expect_jobinfo = [dummy_job_waiting[1]]
+        for i in jid_bs:
+            jobinfo = self.rec.get_job_info(jid=i)
+            self.assertEqual(expect_jobinfo, jobinfo)
