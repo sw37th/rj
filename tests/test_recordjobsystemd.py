@@ -131,7 +131,31 @@ dummy_job_waiting = [
         'rj_title': 'yamanosusume_3rd',
         'rj_id_long': '6095bb2745368511247217865f47f09cd874f27eeda5a7c960c222bf8003e2c7',
         'rj_id': '6095bb27',
-        'repeat': 'WEEKLY'}]
+        'repeat': 'WEEKLY'},
+    {
+        'tuner': 'tt',
+        'timer': {
+            'Names': 'RJ.15.asobiasobase.20180715232950.tt.timer',
+            'NextElapseUSecRealtime': 'Sun 2018-07-15 23:29:50 JST',
+            'Description': 'RJ:ONESHOT: timer unit for asobiasobase',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.asobiasobase.20180715232950.tt.timer',
+            },
+        'service': {
+            'Names': 'RJ.15.asobiasobase.20180715232950.tt.service',
+            'Environment': 'RJ_ch=15 RJ_walltime=1770',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.asobiasobase.20180715232950.tt.service',
+            },
+        'rec_begin': datetime(2018, 7, 15, 23, 29, 50),
+        'channel': '15',
+        'walltime': timedelta(0, 1770),
+        'rec_end': datetime(2018, 7, 15, 23, 59, 20),
+        'user': 'autumn',
+        'rj_title': 'asobiasobase',
+        'rj_id_long': '9c53f7cdc34ddfd49fc79056b22127d2cbeeae5aa3f2c22e5c64624172cbdc9a',
+        'rj_id': '9c53f7cd',
+        'repeat': 'ONESHOT'}]
 dummy_job_running = [
     {
         'tuner': 'tt',
@@ -159,45 +183,6 @@ dummy_job_running = [
         'rj_id_long': 'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
         'rj_id': 'd39bb99c',
         'repeat': 'WEEKLY'}]
-dummy_job_twodays = dummy_job_waiting + [
-    {
-        'tuner': 'tt',
-        'timer': {
-            'Names': 'RJ.15.asobiasobase.20180715232950.tt.timer',
-            'NextElapseUSecRealtime': 'Sun 2018-07-15 23:29:50 JST',
-            'Description': 'RJ:ONESHOT: timer unit for asobiasobase',
-            'FragmentPath': dummy_unitdir + \
-                'RJ.15.asobiasobase.20180715232950.tt.timer',
-            },
-        'service': {
-            'Names': 'RJ.15.asobiasobase.20180715232950.tt.service',
-            'Environment': 'RJ_ch=15 RJ_walltime=1770',
-            'FragmentPath': dummy_unitdir + \
-                'RJ.15.asobiasobase.20180715232950.tt.service',
-            },
-        'rec_begin': datetime(2018, 7, 15, 23, 29, 50),
-        'channel': '15',
-        'walltime': timedelta(0, 1770),
-        'rec_end': datetime(2018, 7, 15, 23, 59, 20),
-        'user': 'autumn',
-        'rj_title': 'asobiasobase',
-        'rj_id_long': '9c53f7cdc34ddfd49fc79056b22127d2cbeeae5aa3f2c22e5c64624172cbdc9a',
-        'rj_id': '9c53f7cd',
-        'repeat': 'ONESHOT'}]
-expect_sctl_stop = [
-    'systemctl',
-    '--user',
-    'stop',
-    'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
-    'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',
-    'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
-    'RJ.211.yamanosusume_3rd.20180703022850.bs.service',]
-expect_sctl_disable = [
-    'systemctl',
-    '--user',
-    'disable',
-    'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
-    'RJ.211.yamanosusume_3rd.20180703022850.bs.timer',]
 expect_sctl_reload = [
     'systemctl',
     '--user',
@@ -367,7 +352,18 @@ class RecordJobSystemdTest(TestCase):
     @patch('recordjob.RecordJobSystemd.print')
     def test_remove(self, m_print, m_run):
         self.rec.get_job_info = MagicMock()
-        self.rec.get_job_info.return_value = dummy_job_waiting
+        self.rec.get_job_info.return_value = [dummy_job_waiting[0]]
+        expect_sctl_stop = [
+            'systemctl',
+            '--user',
+            'stop',
+            'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            'RJ.15.yamanosusume_3rd.20180703013850.tt.service',]
+        expect_sctl_disable = [
+            'systemctl',
+            '--user',
+            'disable',
+            'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',]
         expect_calls_run = [
             call(
                 expect_sctl_stop,
@@ -665,6 +661,5 @@ class RecordJobSystemdTest(TestCase):
             self.assertEqual(expect_jobinfo, jobinfo)
 
         # 日時を指定してジョブ情報を取得
-        self.rec._get_systemd_job_info.return_value = dummy_job_twodays
         jobinfo = self.rec.get_job_info(date=datetime(2018, 7, 10, 0, 0, 0))
-        self.assertEqual(dummy_job_waiting, jobinfo)
+        self.assertEqual(dummy_job_waiting[0:2], jobinfo)
