@@ -333,7 +333,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         except (PermissionError, FileNotFoundError) as err:
             print('cannot change start time:', err)
 
-    def get_job_info(self, date=None, jid=[]):
+    def get_job_info(self, date=None, jid=''):
         """
         録画ジョブ情報を取得して返す
         """
@@ -341,9 +341,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         if jid:
             # 指定のIDのジョブのみ抽出
-            # jidで渡された配列の文字列は
-            # すべて同じ長さであると想定する
-            if len(jid[0]) == 8:
+            if len(jid) == 8:
                 key = 'rj_id'
             else:
                 key = 'rj_id_long'
