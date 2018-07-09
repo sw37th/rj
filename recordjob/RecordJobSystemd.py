@@ -290,7 +290,11 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         unit = job.get('service',{}).get('FragmentPath')
         title = job.get('rj_title')
+        do_recpt1ctl = False
 
+        state = job.get('record_state', '').lower()
+        if state == 'recording' and (ch or rectime):
+            do_recpt1ctl = True
         if not ch:
             ch = job.get('channel')
         if not rectime:
@@ -298,8 +302,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         if not repeat:
             repeat = job.get('repeat')
 
-        state = job.get('record_state', '')
-        if state == 'Recording':
+        if do_recpt1ctl:
             # すでにrecpt1コマンドを実行中の場合は
             # recpt1ctlコマンドにて録画時間とチャンネルを
             # 変更する
