@@ -589,9 +589,19 @@ class RecordJobSystemdTest(TestCase):
     def test_change_timer(self):
         self.rec._create_timer = MagicMock()
         job = dummy_job_waiting[0]
-        self.rec._change_timer(job, begin, repeat='WEEKLY')
+
+        # 開始時刻変更
+        self.rec._change_timer(job, begin)
         self.rec._create_timer.assert_called_with(
             dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
             'yamanosusume_3rd',
             begin,
             'WEEKLY')
+
+        # 開始時刻とリピートフラグ変更
+        self.rec._change_timer(job, begin, repeat='DAILY')
+        self.rec._create_timer.assert_called_with(
+            dummy_unitdir + 'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
+            'yamanosusume_3rd',
+            begin,
+            'DAILY')
