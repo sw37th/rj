@@ -146,7 +146,7 @@ dummy_job_running = [
             'Names': 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
             'Environment': 'RJ_ch=15 RJ_walltime=960',
             'MainPID': '8419',
-            'FragmentPath':dummy_unitdir + \
+            'FragmentPath': dummy_unitdir + \
                 'RJ.15.yamanosusume_3rd.20180703013850.tt.service',
             },
         'record_state': 'Recording',
@@ -159,6 +159,31 @@ dummy_job_running = [
         'rj_id_long': 'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
         'rj_id': 'd39bb99c',
         'repeat': 'WEEKLY'}]
+dummy_job_twodays = dummy_job_waiting + [
+    {
+        'tuner': 'tt',
+        'timer': {
+            'Names': 'RJ.15.asobiasobase.20180715232950.tt.timer',
+            'NextElapseUSecRealtime': 'Sun 2018-07-15 23:29:50 JST',
+            'Description': 'RJ:ONESHOT: timer unit for asobiasobase',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.asobiasobase.20180715232950.tt.timer',
+            },
+        'service': {
+            'Names': 'RJ.15.asobiasobase.20180715232950.tt.service',
+            'Environment': 'RJ_ch=15 RJ_walltime=1770',
+            'FragmentPath': dummy_unitdir + \
+                'RJ.15.asobiasobase.20180715232950.tt.service',
+            },
+        'rec_begin': datetime(2018, 7, 15, 23, 29, 50),
+        'channel': '15',
+        'walltime': timedelta(0, 1770),
+        'rec_end': datetime(2018, 7, 15, 23, 59, 20),
+        'user': 'autumn',
+        'rj_title': 'asobiasobase',
+        'rj_id_long': '9c53f7cdc34ddfd49fc79056b22127d2cbeeae5aa3f2c22e5c64624172cbdc9a',
+        'rj_id': '9c53f7cd',
+        'repeat': 'ONESHOT'}]
 expect_sctl_stop = [
     'systemctl',
     '--user',
@@ -638,3 +663,8 @@ class RecordJobSystemdTest(TestCase):
         for i in jid_bs:
             jobinfo = self.rec.get_job_info(jid=i)
             self.assertEqual(expect_jobinfo, jobinfo)
+
+        # 日時を指定してジョブ情報を取得
+        self.rec._get_systemd_job_info.return_value = dummy_job_twodays
+        jobinfo = self.rec.get_job_info(date=datetime(2018, 7, 10, 0, 0, 0))
+        self.assertEqual(dummy_job_waiting, jobinfo)
