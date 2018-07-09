@@ -441,7 +441,12 @@ def main():
             print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
 
     elif args.get('del'):
-        rec.remove(args.get('JOBID'))
+        """
+        録画ジョブを削除する
+        """
+        jid = args.get('JOBID')[0]
+
+        rec.remove(jid)
         jobinfo = rec.get_job_info()
         print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
 
