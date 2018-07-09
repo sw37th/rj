@@ -339,7 +339,8 @@ class RecordJobSystemdTest(TestCase):
         m_run.assert_has_calls(expect_calls_run)
 
     @patch('recordjob.RecordJobSystemd.run')
-    def test_remove(self, m_run):
+    @patch('recordjob.RecordJobSystemd.print')
+    def test_remove(self, m_print, m_run):
         self.rec.get_job_info = MagicMock()
         self.rec.get_job_info.return_value = dummy_job_waiting
         expect_calls_run = [
@@ -354,9 +355,16 @@ class RecordJobSystemdTest(TestCase):
                 stderr=STDOUT,
                 stdout=DEVNULL),
         ]
-
         self.rec.remove(dummy_job_waiting_ids)
         m_run.assert_has_calls(expect_calls_run)
+
+        m_run.reset_mock()
+
+        # 存在しないジョブIDが渡された場合
+        # FIXME returnで返しているが、例外で処理したい
+        self.rec.get_job_info.return_value = []
+        self.rec.remove(dummy_job_waiting_ids)
+        self.assertFalse(m_run.called)
 
     @patch('recordjob.RecordJobSystemd.run')
     def test_unit_reload(self, m_run):
