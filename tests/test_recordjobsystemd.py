@@ -11,18 +11,6 @@ begin = datetime(2018, 6, 30, 00, 00, 00)
 rectime = timedelta(seconds=1770)
 unit_tt = 'RJ.15.test.20180630000000.tt'
 unit_tt_id = '6728ed28435be863a9ee453ecc391f2f6415aada2dc01d61643c2f25dac9f095'
-expect_sctl_start = [
-    'systemctl',
-    '--user',
-    'start',
-    unit_tt + '.timer'
-]
-expect_sctl_enable = [
-    'systemctl',
-    '--user',
-    'enable',
-    unit_tt + '.timer'
-]
 expect_timer_file = """\
 # created programmatically via rj. Do not edit.
 [Unit]
@@ -82,7 +70,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "recpt1 --b25 --strip $$RJ_ch $$RJ_walltim
 ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
 """
 dummy_unitdir = '/home/dummy/.config/systemd/user/'
-dummy_job_waiting_ids = ['d39bb99c', '6095bb27']
 dummy_job_waiting = [
     {
         'tuner': 'tt',
@@ -183,10 +170,6 @@ dummy_job_running = [
         'rj_id_long': 'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
         'rj_id': 'd39bb99c',
         'repeat': 'WEEKLY'}]
-expect_sctl_reload = [
-    'systemctl',
-    '--user',
-    'daemon-reload',]
 
 class RecordJobSystemdTest(TestCase):
     def setUp(self):
@@ -324,6 +307,16 @@ class RecordJobSystemdTest(TestCase):
     def test_add(self, m_run):
         expect_unit_timer = self.rec.unitdir + '/' + unit_tt + '.timer'
         expect_unit_service = self.rec.unitdir + '/' + unit_tt + '.service'
+        expect_sctl_start = [
+            'systemctl',
+            '--user',
+            'start',
+            unit_tt + '.timer',]
+        expect_sctl_enable = [
+            'systemctl',
+            '--user',
+            'enable',
+            unit_tt + '.timer',]
         expect_calls_run = [
             call(
                 expect_sctl_start,
@@ -334,8 +327,7 @@ class RecordJobSystemdTest(TestCase):
                 expect_sctl_enable,
                 check=True,
                 stderr=STDOUT,
-                stdout=DEVNULL),
-        ]
+                stdout=DEVNULL),]
 
         self.rec._create_timer = MagicMock()
         self.rec._create_service = MagicMock()
@@ -351,8 +343,8 @@ class RecordJobSystemdTest(TestCase):
     @patch('recordjob.RecordJobSystemd.run')
     @patch('recordjob.RecordJobSystemd.print')
     def test_remove(self, m_print, m_run):
-        self.rec.get_job_info = MagicMock()
-        self.rec.get_job_info.return_value = [dummy_job_waiting[0]]
+        self.rec._get_systemd_job_info = MagicMock()
+        self.rec._get_systemd_job_info.return_value = dummy_job_waiting
         expect_sctl_stop = [
             'systemctl',
             '--user',
@@ -376,19 +368,23 @@ class RecordJobSystemdTest(TestCase):
                 stderr=STDOUT,
                 stdout=DEVNULL),
         ]
-        self.rec.remove(dummy_job_waiting_ids)
+        self.rec.remove('d39bb99c')
         m_run.assert_has_calls(expect_calls_run)
 
         m_run.reset_mock()
 
         # 存在しないジョブIDが渡された場合
         # FIXME returnで返しているが、例外で処理したい
-        self.rec.get_job_info.return_value = []
-        self.rec.remove(dummy_job_waiting_ids)
+        #self.rec.get_job_info.return_value = []
+        self.rec.remove('XXXXXXXX')
         self.assertFalse(m_run.called)
 
     @patch('recordjob.RecordJobSystemd.run')
     def test_unit_reload(self, m_run):
+        expect_sctl_reload = [
+            'systemctl',
+            '--user',
+            'daemon-reload',]
         self.rec._unit_reload()
         m_run.assert_called_with(expect_sctl_reload, check=True)
 
