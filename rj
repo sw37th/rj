@@ -466,7 +466,8 @@ def main():
         """
         引数に指定されたIDのジョブを表示する
         """
-        jobinfo = rec.get_job_info(jid=args.get('JOBID',''))
+        jid = args.get('JOBID')[0]
+        jobinfo = rec.get_job_info(jid=jid)
         if jobinfo:
             print_job_information(
                 jobinfo,
@@ -478,7 +479,7 @@ def main():
         """
         登録済み録画ジョブの開始時刻を変更する
         """
-        jid = args.get('JOBID')
+        jid = args.get('JOBID')[0]
 
         origin = rec.get_job_info(jid=jid)[0]
         if not origin:
@@ -511,7 +512,7 @@ def main():
         登録済み録画ジョブの録画時間を再設定する。
         引数で渡された値を新しい録画時間とする。
         """
-        jid = args.get('JOBID')
+        jid = args.get('JOBID')[0]
 
         origin = rec.get_job_info(jid=jid)[0]
         if not origin:
@@ -537,7 +538,7 @@ def main():
         登録済み録画ジョブの録画時間を再設定する。
         現在の録画時間を引数で渡された時間分伸長(短縮)する。
         """
-        jid = args.get('JOBID')
+        jid = args.get('JOBID')[0]
 
         origin = rec.get_job_info(jid=jid)[0]
         if not origin:
@@ -575,7 +576,7 @@ def main():
             repeat = ''
             message = '(Unset repeat flag)'
 
-        jid = args.get('JOBID')
+        jid = args.get('JOBID')[0]
 
         origin = rec.get_job_info(jid=jid)[0]
         if not origin:
