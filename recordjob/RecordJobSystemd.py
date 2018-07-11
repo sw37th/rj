@@ -409,19 +409,13 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return checked_jobs
 
-    def _get_job_info_systemd(self):
+    def _append_job_info(self, jobs):
         """
-        全ジョブのtimerユニット/serviceユニット情報を取得し、
-        補足情報を追加して配列に詰めて返す
+        ベースとなるジョブ情報に録画関連情報を追加
         """
-        jobarray = []
         current = datetime.now()
-
-        job = self._create_job_info_base()
-
-        # ベースとなるジョブ情報に録画関連情報を追加
-        for unit in job:
-            J = job.get(unit)
+        for unit in jobs:
+            J = jobs.get(unit)
             # 録画開始時刻
             rec_begin = J['timer'].get('NextElapseUSecRealtime')
             if not rec_begin:
@@ -460,10 +454,20 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             J['rj_id'] = J['rj_id_long'][0:8]
             J['repeat'] = J['timer'].get('Description').split(':')[1]
 
+    def _get_job_info_systemd(self):
+        """
+        全ジョブのtimerユニット/serviceユニット情報を取得し、
+        補足情報を追加して配列に詰めて返す
+        """
+        jobarray = []
+
+        jobs = self._create_job_info_base()
+        self._append_job_info(jobs)
+
         # 開始時間で昇順にソート
         jobarray = [
-            job[k] for k, v in sorted(
-                job.items(), key=lambda x:x[1]['rec_begin']
+            jobs[k] for k, v in sorted(
+                jobs.items(), key=lambda x:x[1]['rec_begin']
             )
         ]
 
