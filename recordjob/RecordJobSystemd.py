@@ -371,9 +371,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         unit = self.prefix + '.*'
 
-        # 環境変数を取得
-        user_env = self._systemctl_show(None, showenv=True)[0]
-
         # ユニット情報を取得
         for i in self._systemctl_show(unit):
             name = i.get('Names')
@@ -429,7 +426,6 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 J['rec_end'] = (
                     J['rec_begin'] + J['walltime'] 
                 )
-            J['user'] = user_env.get('USER')
             title = name.rsplit('.', 2)[0]
             J['rj_title'] = title.split('.', 2)[2]
             J['rj_id_long'] = hashlib.sha256(
@@ -449,20 +445,16 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobarray
 
-    def _systemctl_show(self, unit, timer=True, service=True, showenv=False):
+    def _systemctl_show(self, unit, timer=True, service=True):
         """
         systemctl --user --all --no-pager showの出力を
         ユニット毎にDictにまとめ、配列に詰めて返す
         """
-        if showenv:
-            command = self.sctl_showenv[:]
-        else:
-            command = self.sctl_show[:]
-            if timer:
-                command.append(unit + '.timer')
-            if service:
-                command.append(unit + '.service')
-
+        command = self.sctl_show[:]
+        if timer:
+            command.append(unit + '.timer')
+        if service:
+            command.append(unit + '.service')
 
         unitarray = []
         try:
