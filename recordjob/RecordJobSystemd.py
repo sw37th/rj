@@ -341,7 +341,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         """
         録画ジョブ情報を取得して返す
         """
-        jobinfo = self._get_systemd_job_info()
+        jobinfo = self._get_job_info_systemd()
 
         if jid:
             # 指定のIDのジョブのみ抽出
@@ -360,27 +360,46 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         return jobinfo
 
-    def _get_systemd_job_info(self):
+    def _create_job_info_base(self):
         """
-        全ジョブのtimerユニット/serviceユニット情報を取得し、
-        補足情報を追加して配列に詰めて返す
+        全ジョブのtimer/serviceユニット情報を取得し、
+        下記構成のdictを作成して返す
+        {
+            'unit1': {
+                {'timer':   {<systemctl show timerユニット>の出力}},
+                {'service': {<systemctl show serviceユニット>の出力}},
+                {'tuner':   'tt' または 'bs'}
+            },
+            'unit2': {
+                ...
+            },
+            ...
+        }
         """
         job = {}
-        jobarray = []
-        current = datetime.now()
-
+        # ユニット(ワイルドカード)を指定して情報を取得
         unit = self.prefix + '.*'
-
-        # ユニット情報を取得
         for i in self._systemctl_show(unit):
             name = i.get('Names')
             name, suffix = name.rsplit('.', 1)
 
-            if name not in job:
+            if not job.get(name):
                 job[name] = {}
                 job[name]['tuner'] = name.rsplit('.', 1)[1]
 
             job[name][suffix] = i
+
+        return job
+
+    def _get_job_info_systemd(self):
+        """
+        全ジョブのtimerユニット/serviceユニット情報を取得し、
+        補足情報を追加して配列に詰めて返す
+        """
+        jobarray = []
+        current = datetime.now()
+
+        job = self._create_job_info_base()
 
         # ユニット情報から録画管理に必要な情報を取得、追加
         for name in list(job.keys()):
