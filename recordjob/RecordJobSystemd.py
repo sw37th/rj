@@ -376,20 +376,38 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             ...
         }
         """
-        job = {}
+        jobs = {}
         # ユニット(ワイルドカード)を指定して情報を取得
-        unit = self.prefix + '.*'
-        for i in self._systemctl_show(unit):
-            name = i.get('Names')
-            name, suffix = name.rsplit('.', 1)
+        unit_wildcard = self.prefix + '.*'
+        for i in self._systemctl_show(unit_wildcard):
+            unit = i.get('Names')
+            unit, suffix = unit.rsplit('.', 1)
 
-            if not job.get(name):
-                job[name] = {}
-                job[name]['tuner'] = name.rsplit('.', 1)[1]
+            if not jobs.get(unit):
+                jobs[unit] = {}
+                jobs[unit]['tuner'] = unit.rsplit('.', 1)[1]
 
-            job[name][suffix] = i
+            jobs[unit][suffix] = i
 
-        return job
+        jobs = self._check_orphaned(jobs)
+        return jobs
+
+    def _check_orphaned(self, jobs):
+        """
+        timerユニット情報、serviceユニット情報の
+        どちらか一方しかないジョブは削除する
+        """
+        checked_jobs = {}
+        for unit in jobs:
+            J = jobs.get(unit)
+            if not J.get('timer'):
+                print(J['service'].get('Names'), 'is orphaned')
+            elif not J.get('service'):
+                print(J['timer'].get('Names'), 'is orphaned')
+            else:
+                checked_jobs[unit] = J
+
+        return checked_jobs
 
     def _get_job_info_systemd(self):
         """
@@ -401,20 +419,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
 
         job = self._create_job_info_base()
 
-        # ユニット情報から録画管理に必要な情報を取得、追加
-        for name in list(job.keys()):
-            # timerユニット情報、serviceユニット情報の
-            # どちらか一方しかないジョブは削除する
-            J = job.get(name)
-            if 'timer' not in J:
-                print(J['service'].get('Names'), 'is orphaned')
-                del job[name]
-                continue
-            if 'service' not in J:
-                print(J['timer'].get('Names'), 'is orphaned')
-                del job[name]
-                continue
-
+        # ベースとなるジョブ情報に録画関連情報を追加
+        for unit in job:
+            J = job.get(unit)
             # 録画開始時刻
             rec_begin = J['timer'].get('NextElapseUSecRealtime')
             if not rec_begin:
@@ -445,10 +452,10 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
                 J['rec_end'] = (
                     J['rec_begin'] + J['walltime'] 
                 )
-            title = name.rsplit('.', 2)[0]
+            title = unit.rsplit('.', 2)[0]
             J['rj_title'] = title.split('.', 2)[2]
             J['rj_id_long'] = hashlib.sha256(
-                name.encode('utf-8')
+                unit.encode('utf-8')
             ).hexdigest()
             J['rj_id'] = J['rj_id_long'][0:8]
             J['repeat'] = J['timer'].get('Description').split(':')[1]
