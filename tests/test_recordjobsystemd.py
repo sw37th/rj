@@ -632,8 +632,8 @@ class RecordJobSystemdTest(TestCase):
             'DAILY')
 
     def test_get_job_info(self):
-        self.rec._get_systemd_job_info = MagicMock()
-        self.rec._get_systemd_job_info.return_value = dummy_job_waiting
+        self.rec._get_job_info_systemd = MagicMock()
+        self.rec._get_job_info_systemd.return_value = dummy_job_waiting
         self.maxDiff = None
         jid_tt = (
             'd39bb99c079baeffe9eb2c6e2f93a36401b37acec8bb4d4d0721f67cee5543ce',
