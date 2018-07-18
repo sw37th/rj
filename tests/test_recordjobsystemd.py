@@ -343,14 +343,16 @@ class RecordJobSystemdTest(TestCase):
     @patch('recordjob.RecordJobSystemd.run')
     @patch('recordjob.RecordJobSystemd.print')
     def test_remove(self, m_print, m_run):
-        self.rec._get_systemd_job_info = MagicMock()
-        self.rec._get_systemd_job_info.return_value = dummy_job_waiting
+        self.rec.get_job_info = MagicMock()
+        self.rec.get_job_info.return_value = [dummy_job_waiting[0]]
+        # stopはtimer/serviceユニット両方
         expect_sctl_stop = [
             'systemctl',
             '--user',
             'stop',
             'RJ.15.yamanosusume_3rd.20180703013850.tt.timer',
             'RJ.15.yamanosusume_3rd.20180703013850.tt.service',]
+        # disableはtimerユニットのみ
         expect_sctl_disable = [
             'systemctl',
             '--user',
@@ -375,7 +377,7 @@ class RecordJobSystemdTest(TestCase):
 
         # 存在しないジョブIDが渡された場合
         # FIXME returnで返しているが、例外で処理したい
-        #self.rec.get_job_info.return_value = []
+        self.rec.get_job_info.return_value = []
         self.rec.remove('XXXXXXXX')
         self.assertFalse(m_run.called)
 
