@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime, timedelta
-from subprocess import run, Popen, PIPE, STDOUT, DEVNULL, CalledProcessError
+from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError
 import hashlib
 import os
 import recordjob
@@ -478,7 +478,7 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
     def _systemctl_show(self, unit, timer=True, service=True):
         """
         systemctl --user --all --no-pager showの出力を
-        ユニット毎にDictにまとめ、配列に詰めて返す
+        ユニット毎に辞書にまとめ、リストに詰めて返す
         """
         command = self.sctl_show[:]
         if timer:
@@ -486,29 +486,26 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         if service:
             command.append(unit + '.service')
 
-        unitarray = []
+        unitlist = []
         try:
-            with Popen(
-                command, universal_newlines=True, stdout=PIPE, stderr=STDOUT,
-            ) as J:
-                unit = {}
-                for i in J.stdout:
-                    i = i.strip()
-                    if not i:
-                        unitarray.append(unit)
-                        unit = {}
-                        continue
-                    k, v = i.split('=', 1)
-                    unit[k] = v
-                # append last unit information
-                if unit:
-                    unitarray.append(unit)
+            ret = run(
+                command, universal_newlines=True, stdout=PIPE, stderr=PIPE)
+            unit = {}
+            for i in ret.stdout.split('\n'):
+                if not i:
+                    # ユニット情報の終端まで来たので
+                    # 辞書をリストに追加
+                    unitlist.append(unit)
+                    unit = {}
+                    continue
+                # ユニット情報を辞書にまとめる。
+                k, v = i.split('=', 1)
+                unit[k] = v
         except (OSError, ValueError) as err:
             print('cannot get unit information: ', err)
             return []
 
-        return unitarray
-
+        return unitlist
 
     def _check_channel_resource(self, jobarray):
         """
