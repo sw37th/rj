@@ -378,17 +378,18 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
         }
         """
         jobs = {}
-        # ユニット(ワイルドカード)を指定して情報を取得
+        # ワイルドカード指定でsystemctl showの情報を取得
         unit_wildcard = self.prefix + '.*'
         for i in self._systemctl_show(unit_wildcard):
-            unit = i.get('Names')
-            unit, suffix = unit.rsplit('.', 1)
+            if i:
+                unit = i.get('Names', '')
+                unit, suffix = unit.rsplit('.', 1)
 
-            if not jobs.get(unit):
-                jobs[unit] = {}
-                jobs[unit]['tuner'] = unit.rsplit('.', 1)[1]
+                if not jobs.get(unit):
+                    jobs[unit] = {}
+                    jobs[unit]['tuner'] = unit.rsplit('.', 1)[1]
 
-            jobs[unit][suffix] = i
+                jobs[unit][suffix] = i
 
         jobs = self._check_orphaned(jobs)
         return jobs
