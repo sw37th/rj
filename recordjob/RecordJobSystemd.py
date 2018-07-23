@@ -29,7 +29,7 @@ class RecordJobSystemd(recordjob.RecordJob):
         self.sctl_reload = self.sctl + ['daemon-reload']
         self.recpt1 = [self.recpt1_path, '--b25', '--strip']
         self.recpt1ctl = [self.recpt1ctl_path]
-        self.execstop = 'ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable {}"'
+        self.execstop = 'ExecStopPost=@/bin/bash "/bin/bash" "-c" "systemctl --user disable {}"'
         self.template_timer = """# created programmatically via rj. Do not edit.
 [Unit]
 Description={_suffix}:{_repeat}: timer unit for {_title}
@@ -98,8 +98,9 @@ ExecStart=@/bin/bash "/bin/bash" "-c" "{_recpt1} $$RJ_ch $$RJ_walltime {_output}
             execstop = ''
         else:
             # for ONESHOT
-            # serviceユニット実行後、ExecStopからsystemctl disable
-            # で当該ジョブのtimerユニットを無効化する
+            # serviceユニット実行後、ExecStopPostから
+            # systemctl disableコマンドにて
+            # 当該ジョブのtimerユニットを無効化する
             timer = unit.rsplit('/', maxsplit=1)[1]
             timer = timer.rsplit('.', maxsplit=1)[0] + '.timer'
             execstop = self.execstop.format(timer)

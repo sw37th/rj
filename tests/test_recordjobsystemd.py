@@ -45,7 +45,7 @@ CollectMode=inactive-or-failed
 [Service]
 Environment="RJ_ch=211" "RJ_walltime=1770"
 ExecStart=@/bin/bash "/bin/bash" "-c" "recpt1 --b25 --strip --lnb 15 $$RJ_ch $$RJ_walltime {_recdir}/dummyservice.211.`date +%%Y%%m%%d_%%H%%M.%%S`.$$$.ts"
-ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
+ExecStopPost=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
 """
 expect_service_file_tt_repeat = """\
 # created programmatically via rj. Do not edit.
@@ -67,7 +67,7 @@ CollectMode=inactive-or-failed
 [Service]
 Environment="RJ_ch=15" "RJ_walltime=1770"
 ExecStart=@/bin/bash "/bin/bash" "-c" "recpt1 --b25 --strip $$RJ_ch $$RJ_walltime {_recdir}/dummyservice.15.`date +%%Y%%m%%d_%%H%%M.%%S`.$$$.ts"
-ExecStop=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
+ExecStopPost=@/bin/bash "/bin/bash" "-c" "systemctl --user disable test.timer"
 """
 dummy_unitdir = '/home/dummy/.config/systemd/user/'
 dummy_job_waiting = [
