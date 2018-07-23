@@ -1,6 +1,6 @@
 # rj
 rjはLinuxでのTV録画予約用コマンドラインスクリプトです。
-バックエンドのジョブスケジューラには、systemd timerまたはTORQUE Resource Managerが使用できます。
+バックエンドのジョブスケジューラには、[systemd timer](https://www.freedesktop.org/software/systemd/man/systemd.timer.html)または[TORQUE Resource Manager](http://www.adaptivecomputing.com/products/torque/)が使用できます。
 
 実行にはPython 3.5以降が必要です。
 
@@ -65,15 +65,13 @@ Options:
   -r --repeat <TYPE>   :set repeat flag. TYPE can specify 'weekly', 'daily', 'weekday', 'asadora'
 ```
 
-When recording Yamanosusume 3rd season broadcasting in BS11 (channel 211) for 15 minutes from 26:30 on Monday,
-
 rj addで録画予約をサブミットします。
 例えば月曜日の26:30から15分間、BS11(211チャンネル)にて放送される「ヤマノススメ サードシーズン」を録画する場合、
 ```bash
 ./rj add 211    yamanosusume_3rd  Mon  26:30 00:15:00
 ```
 
-rj listでサブミット済みの録画予約を一覧表示します。
+rj listでサブミット済みの録画予約ジョブを一覧表示します。
 
 ```bash
 ./rj list
@@ -82,19 +80,19 @@ ID       Ch             Title                    Start           walltime rep tu
 e2156ff5 211 BS11       yamanosusume_3rd         Mon  7/23 26:30 00:15:00     bs     
 ```
 
-rj delで録画予約を削除します。
+録画予約ジョブの削除はrj delを実行します。
 
 ```bash
 ./rj del e2156ff5
 ```
 
-定期的にジョブを実行する場合は、リピートフラグをセットします。
+デフォルトでは予約した録画が完了するとジョブは削除されます。同じジョブを繰り返し実行する場合はリピートフラグをセットします。
 
 ```bash
 ./rj setrep e2156ff5 weekly
 ```
 
-フラグは 'weekly', 'daily', 'weekday', 'asadora' の4種類があります。
+リピートフラグは 'weekly', 'daily', 'weekday', 'asadora' の4種類があります。
 
 | Flag    | Periodically |
 ----------|---------------
