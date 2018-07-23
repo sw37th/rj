@@ -3,10 +3,12 @@
 import yaml
 import os
 
-channel_file = '/home/autumn/work/rj/channel.yml'
+homedir = os.path.expanduser('~')
+confdir = homedir + '/.rj'
+channel_file = confdir + '/channel.yml'
+recdir = homedir + '/rec'
 recpt1_path = 'recpt1'
 recpt1ctl_path = 'recpt1ctl'
-recdir = os.path.expanduser('~') + '/rec'
 comm_timeout = 10
 
 class RecordJob(object):
