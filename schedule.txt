@@ -1,0 +1,107 @@
+## Sun
+103    haikyu            Sun  07:30
+24     hug_precure       Sun  08:30
+24     build             Sun  09:00
+23     gegege            Sun  09:00
+24     lupin_vs_pato     Sun  09:30
+25     dash              Sun  18:59  00:59:30
+15     dodesho           Sun  21:00
+15     island            Sun  22:00
+15     planet_with       Sun  22:30
+15     asobiasobase      Sun  23:30
+15     hanebado          Sun  24:00
+211    hanebado          Sun  24:00
+20     tsukumogami       Sun  24:10 00:26:00
+15     baki              Sun  24:30
+20     shingeki_3rd      Sun  24:35
+15     joshiochi         Sun  25:00 00:05:00
+211    asobiasobase      Sun  25:00
+ 
+## Mon
+15     aninitsukeru_2nd  Mon  21:54 00:06:00
+15     tourikenyuuki     Mon  22:00
+15     kakuriyo          Mon  22:30
+181    jashinchan        Mon  24:00
+211    aguu              Mon  24:00
+161    phantom_twilight  Mon  24:30
+211    umamusume         Mon  24:30
+15     akkun             Mon  25:00 00:05:00
+15     jashinchan        Mon  25:05
+15     one_room_2nd      Mon  25:35 00:05:00
+15     yamanosusume_3rd  Mon  25:39 00:16:00
+23     kyaputsuba        Mon  25:35
+23     kyoutoteramachi   Mon  26:05
+211    yamanosusume_3rd  Mon  26:29 00:16:00
+ 
+## Tue
+15     delemas_gekijou_3rd Tue 21:54 00:06:00
+211    delemas_gekijou_3rd Tue 21:54 00:06:00
+15     senjuushi         Tue  23:00
+15     overlord_3rd      Tue  24:30
+211    backstreetgirls   Tue  25:00
+15     oregairu          Tue  25:05
+25     lupin_part5       Tue  25:29
+15     onmyouji_heian    Tue  25:35 00:05:00
+23     bakabon           Tue  25:35
+15     backstreetgirls   Tue  25:40
+25     tonegawa          Tue  25:59
+ 
+## Wed
+15     pandora           Wed  23:30
+15     free_3rd          Wed  24:00
+211    overlord_3rd      Wed  24:00
+211    gungaleonline     Wed  24:30
+15     angolmois         Wed  25:05
+15     steins_gate_zero  Wed  25:35
+ 
+## Thu
+15     doreimajutsu      Thu  22:00
+15     sunoharasou       Thu  22:30
+211    sunoharasou       Thu  23:00
+15     tenrou            Thu  23:30
+211    tenrou            Thu  23:30
+15     yumeoukoku        Thu  24:00
+181    doreimajutsu      Thu  24:00
+211    free_3rd          Thu  24:00
+21     banana            Thu  24:55
+22     starlight         Thu  25:28
+22     shichiseinosubaru Thu  25:58
+ 
+## Fri
+15     hatarakuonisan_2nd Fri  21:54 00:06:00
+15     chiochan          Fri  22:00
+15     satsurikunotenshi Fri  22:30
+211    steins_gate_zero  Fri  23:00
+211    pandora           Fri  23:30
+15     koyomimonogatari  Fri  24:00
+211    koyomimonogatari  Fri  24:00
+15     highscoregirl     Fri  24:30
+211    highscoregirl     Fri  24:30
+16     cowboy_bebop      Fri  24:30
+171    kyoutoteramachi   Fri  24:59
+211    angolmois         Fri  25:00
+15     lordofvermilion   Fri  25:05
+15     nobunaganoshinobi_3rd Fri  25:35 00:05:00
+15     harukana          Fri  25:40
+22     happysugarlife    Fri  25:55
+22     granburu          Fri  26:25
+
+## Sat
+23     the_fishing       Sat  17:30
+20     buratamori        Sat  19:30 00:46:00
+211    build_divers      Sat  19:30
+15     yuragisou         Sat  23:30
+211    yuragisou         Sat  23:30
+15     hatarakusaibou    Sat  24:00
+211    hatarakudaibou    Sat  24:00
+161    happysugarlife    Sat  24:00
+15     persona5          Sat  24:30
+211    persona5          Sat  24:30
+161    guranburu         Sat  24:30
+15     ongakushoujo      Sat  25:00
+211    ongakushoujo      Sat  25:00
+161    starlight         Sat  24:30
+15     ikusaotome        Sat  25:30
+211    ikusaotome        Sat  25:30
+161    shichiseinosubaru Sat  25:30
+211    harukana          Sat  27:00
