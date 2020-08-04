@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from subprocess import Popen, PIPE, TimeoutExpired
 import re
 from datetime import datetime, timedelta

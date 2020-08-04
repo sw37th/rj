@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from datetime import datetime, timedelta
 from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError
 import hashlib

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from unittest import TestCase
 from recordjob import RecordJobSystemd as rjs
 from unittest.mock import mock_open, patch, MagicMock, call
