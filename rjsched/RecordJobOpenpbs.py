@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
-from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError
+from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError, TimeoutExpired
 import hashlib
+import json
 import os
 import sys
 
 class RecordJobOpenpbs:
     def __init__(self):
         pbsexec = '/work/pbs/bin/'
-        self.qstat = [pbsexec + 'qstat', '-f', '-1']
+        self.qstat = [pbsexec + 'qstat', '-f', '-F', 'json']
         self.pbsnodes = [pbsexec + 'pbsnodes', '-a']
         self.qsub = [pbsexec + 'qsub']
         self.qalter = [pbsexec + 'qalter', '-a' ]
@@ -31,3 +32,18 @@ class RecordJobOpenpbs:
             'satellite': 'bs',
             'terrestrial': 'tt',
         }
+
+    def _qstat(self):
+        try:
+            ret = run(
+                self.qstat,
+                timeout=self.comm_timeout,
+                check=True,
+                stdout=PIPE,
+                stderr=STDOUT,
+            )
+            jobs = json.loads(ret.stdout)
+            print(jobs)
+
+        except (CalledProcessError, TimeoutExpired) as err:
+            print('cannot get job information: {}'.format(err))
