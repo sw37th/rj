@@ -2,8 +2,10 @@ import yaml
 
 class RecordJob:
     def __init__(self):
-        self.recpt1_path = '/usr/local/bin/recpt1'
-        self.recpt1ctl_path = '/usr/local/bin/recpt1ctl'
+        recpt1_path = '/usr/local/bin/recpt1'
+        recpt1ctl_path = '/usr/local/bin/recpt1ctl'
+        self.recpt1 = [recpt1_path, '--b25', '--strip']
+        self.recpt1ctl = [recpt1ctl_path]
         self.recdir = '/home/autumn/rec'
         self.channel_file = '/home/autumn/work/rj/channel.yml'
         self.comm_timeout = 10
