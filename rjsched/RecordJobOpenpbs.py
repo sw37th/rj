@@ -23,17 +23,8 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         return self.name
 
     def _qstat(self):
-        try:
-            ret = run(
-                self.qstat,
-                timeout=self.comm_timeout,
-                check=True,
-                stdout=PIPE,
-                stderr=STDOUT,
-            )
-            self.jobs = json.loads(ret.stdout)
-        except (CalledProcessError, TimeoutExpired) as err:
-            print('cannot get job information: {}'.format(err))
+        proc = self._run_command(self.qstat)
+        self.jobs = json.loads(proc.stdout)
 
     def _create_jobscript(self, ch, title, begin, rectime, repeat=''):
         """
@@ -79,6 +70,23 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return scriptname
 
+    def _run_command(self, command):
+        """
+        コマンドを実行し、CompletedProcessオブジェクトを返す
+        """
+        try:
+            proc = run(
+                command,
+                stdout=PIPE,
+                stderr=PIPE,
+                universal_newlines=True,
+                timeout=self.comm_timeout,
+                check=True,)
+        except (TimeoutExpired, CalledProcessError) as err:
+            print('{} failed: {}'.format(command[0], err))
+            sys.exit(1)
+        return proc
+
     def add(self, ch, title, begin, rectime, repeat=''):
         """
         ch:      チャンネル番号(string)
@@ -92,5 +100,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         qsub = self.qsub[:]
         qsub.append(scriptname)
         print(qsub)
+        proc = self._run_command(qsub)
+        print('{}'.format(proc.stdout))
 
         return None
