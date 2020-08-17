@@ -10,6 +10,7 @@ class RecordJobOpenpbsTest(TestCase):
     def setUp(self):
         super(RecordJobOpenpbsTest, self).setUp()
         self.rec = rjo.RecordJobOpenpbs()
+        self.maxDiff = None
 
     def tearDown(self):
         super(RecordJobOpenpbsTest, self).tearDown()
@@ -26,12 +27,15 @@ class RecordJobOpenpbsTest(TestCase):
     """
     @freeze_time('2020-08-11 00:00:00')
     def test_create_jobscript(self):
-
+        """
+        ジョブスクリプトのフォーマットチェック
+        """
         tt_name_expected = '/home/autumn/jobsh/tt_test.202008120134.30.1597071600.0.sh'
         tt_body_expected = dedent('''\
             #PBS -N 15.tt_test
             #PBS -a 202008120134.30
             #PBS -l walltime=1770
+            #PBS -l tt=1
             #PBS -j oe
             #PBS -o /home/autumn/log
             #PBS -e /home/autumn/log
@@ -44,6 +48,7 @@ class RecordJobOpenpbsTest(TestCase):
             #PBS -N 103.bs_test
             #PBS -a 202008120134.30
             #PBS -l walltime=1770
+            #PBS -l bs=1
             #PBS -j oe
             #PBS -o /home/autumn/log
             #PBS -e /home/autumn/log
@@ -68,3 +73,144 @@ class RecordJobOpenpbsTest(TestCase):
             handle = mopen()
             handle.write.assert_called_once_with(bs_body_expected)
             self.assertEqual(name, bs_name_expected)
+
+    """
+    現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
+    """
+    @freeze_time('2020-08-16 20:03:00')
+    def test__get_job_info(self):
+        """
+        qstatコマンドの出力から内部的なジョブ情報リストに正しく変換されること
+        """
+        qstat_out = dedent("""\
+            {
+                "Jobs":{
+                    "68.openpbs":{
+                        "Job_Name":"181.bs_wait",
+                        "job_state":"W",
+                        "ctime":"Sun Aug 16 17:11:02 2020",
+                        "Execution_Time":"Tue Aug 18 23:59:50 2020",
+                        "mtime":"Sun Aug 16 17:11:02 2020",
+                        "qtime":"Sun Aug 16 17:11:02 2020",
+                        "Resource_List":{
+                            "bs":"1",
+                            "walltime":"00:29:30"
+                        },
+                        "euser":"autumn",
+                        "egroup":"autumn"
+                    },
+                    "69.openpbs":{
+                        "Job_Name":"181.bs_run",
+                        "job_state":"R",
+                        "ctime":"Sun Aug 16 20:01:16 2020",
+                        "exec_host":"openpbs/0",
+                        "mtime":"Sun Aug 16 20:03:24 2020",
+                        "qtime":"Sun Aug 16 20:01:16 2020",
+                        "Resource_List":{
+                            "bs":"1",
+                            "walltime":"00:29:30"
+                        },
+                        "stime":"Sun Aug 16 20:01:50 2020",
+                        "euser":"autumn",
+                        "egroup":"autumn",
+                        "etime":"Sun Aug 16 20:01:50 2020"
+                    },
+                    "70.openpbs":{
+                        "Job_Name":"25.tt_wait",
+                        "job_state":"W",
+                        "ctime":"Sun Aug 16 17:11:02 2020",
+                        "Execution_Time":"Tue Aug 18 23:59:50 2020",
+                        "mtime":"Sun Aug 16 17:11:02 2020",
+                        "qtime":"Sun Aug 16 17:11:02 2020",
+                        "Resource_List":{
+                            "tt":"1",
+                            "walltime":"00:29:30"
+                        },
+                        "euser":"autumn",
+                        "egroup":"autumn"
+                    },
+                    "71.openpbs":{
+                        "Job_Name":"25.tt_run",
+                        "job_state":"R",
+                        "ctime":"Sun Aug 16 20:01:16 2020",
+                        "exec_host":"openpbs/0",
+                        "mtime":"Sun Aug 16 20:03:24 2020",
+                        "qtime":"Sun Aug 16 20:01:16 2020",
+                        "Resource_List":{
+                            "tt":"1",
+                            "walltime":"00:29:30"
+                        },
+                        "stime":"Sun Aug 16 20:01:50 2020",
+                        "euser":"autumn",
+                        "egroup":"autumn",
+                        "etime":"Sun Aug 16 20:01:50 2020"
+                    }
+                }
+            }""")
+        joblist_expected = [
+            {
+                'rj_id': '68',
+                'channel': '181',
+                'rj_title': 'bs_wait',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'bs',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 17, 11, 2),
+                'ctime': datetime(2020, 8, 16, 17, 11, 2),
+                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
+            {
+                'rj_id': '69',
+                'channel': '181',
+                'rj_title': 'bs_run',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50),
+                'elapse': timedelta(0, 70, 0),
+                'exec_host': 'openpbs',
+                'rec_end': datetime(2020, 8, 16, 20, 31, 20),
+                'record_state': 'Recording',
+                'tuner': 'bs',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 20, 1, 16),
+                'ctime': datetime(2020, 8, 16, 20, 1, 16),
+                'mtime': datetime(2020, 8, 16, 20, 3, 24)},
+            {
+                'rj_id': '70',
+                'channel': '25',
+                'rj_title': 'tt_wait',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'tt',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 17, 11, 2),
+                'ctime': datetime(2020, 8, 16, 17, 11, 2),
+                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
+            {
+                'rj_id': '71',
+                'channel': '25',
+                'rj_title': 'tt_run',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50),
+                'elapse': timedelta(0, 70, 0),
+                'exec_host': 'openpbs',
+                'rec_end': datetime(2020, 8, 16, 20, 31, 20),
+                'record_state': 'Recording',
+                'tuner': 'tt',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 20, 1, 16),
+                'ctime': datetime(2020, 8, 16, 20, 1, 16),
+                'mtime': datetime(2020, 8, 16, 20, 3, 24)}]
+
+        proc = MagicMock()
+        proc.stdout = qstat_out
+        self.rec._run_command = MagicMock(return_value=proc)
+        self.rec._get_job_info()
+        self.assertEqual(self.rec.joblist, joblist_expected)
