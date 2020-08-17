@@ -149,20 +149,6 @@ class RecordJobOpenpbsTest(TestCase):
             }""")
         joblist_expected = [
             {
-                'rj_id': '68',
-                'channel': '181',
-                'rj_title': 'bs_wait',
-                'walltime': timedelta(0, 1770),
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
-                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
-                'record_state': 'Waiting',
-                'tuner': 'bs',
-                'user': 'autumn',
-                'group': 'autumn',
-                'qtime': datetime(2020, 8, 16, 17, 11, 2),
-                'ctime': datetime(2020, 8, 16, 17, 11, 2),
-                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
-            {
                 'rj_id': '69',
                 'channel': '181',
                 'rj_title': 'bs_run',
@@ -179,20 +165,6 @@ class RecordJobOpenpbsTest(TestCase):
                 'ctime': datetime(2020, 8, 16, 20, 1, 16),
                 'mtime': datetime(2020, 8, 16, 20, 3, 24)},
             {
-                'rj_id': '70',
-                'channel': '25',
-                'rj_title': 'tt_wait',
-                'walltime': timedelta(0, 1770),
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
-                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
-                'record_state': 'Waiting',
-                'tuner': 'tt',
-                'user': 'autumn',
-                'group': 'autumn',
-                'qtime': datetime(2020, 8, 16, 17, 11, 2),
-                'ctime': datetime(2020, 8, 16, 17, 11, 2),
-                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
-            {
                 'rj_id': '71',
                 'channel': '25',
                 'rj_title': 'tt_run',
@@ -207,8 +179,35 @@ class RecordJobOpenpbsTest(TestCase):
                 'group': 'autumn',
                 'qtime': datetime(2020, 8, 16, 20, 1, 16),
                 'ctime': datetime(2020, 8, 16, 20, 1, 16),
-                'mtime': datetime(2020, 8, 16, 20, 3, 24)}]
-
+                'mtime': datetime(2020, 8, 16, 20, 3, 24)},
+            {
+                'rj_id': '68',
+                'channel': '181',
+                'rj_title': 'bs_wait',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'bs',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 17, 11, 2),
+                'ctime': datetime(2020, 8, 16, 17, 11, 2),
+                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
+            {
+                'rj_id': '70',
+                'channel': '25',
+                'rj_title': 'tt_wait',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 19, 0, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'tt',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 16, 17, 11, 2),
+                'ctime': datetime(2020, 8, 16, 17, 11, 2),
+                'mtime': datetime(2020, 8, 16, 17, 11, 2)}]
         proc = MagicMock()
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
