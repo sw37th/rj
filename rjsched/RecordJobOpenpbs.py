@@ -95,6 +95,10 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
             self.joblist.append(job)
 
+        # 録画開始時刻で昇順にソート
+        self.joblist = sorted(
+            self.joblist, key=lambda x:x['rec_begin'])
+
     def get_job_info(self, date=None):
         self._get_job_info()
         return self.joblist
