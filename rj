@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Record the TV program by JOB scheduler
 
 Usage:
@@ -23,7 +22,7 @@ Options:
 from datetime import datetime, timedelta
 from docopt import docopt
 import importlib
-import recordjob
+import rjsched
 import re
 import sys
 import time
@@ -36,13 +35,14 @@ dateline_hour = 5
 # wormup_sec: 録画開始のマージン
 # ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため
 # 指定時刻よりwormup_sec秒だけ早くジョブを開始する。
-wormup_sec = 10
+wormup_sec = 30
 
 # default_rectime: デフォルトの録画時間
 default_rectime = '00:29:30'
 
 #scheduler = "Torque"
-scheduler = "Systemd"
+#scheduler = "Systemd"
+scheduler = "Openpbs"
 
 def check_start_time(date, time):
     try:
@@ -283,7 +283,7 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
         if j.get('alert'):
             state = ' '.join((j.get('alert'), state))
 
-        repeat = j.get('repeat')
+        repeat = j.get('repeat', 'ONESHOT')
 
         print('{:8} {:>3} {:10} {:24} {} {} {:3} {:5} {} {}'.format(
             j.get('rj_id', ''),
@@ -317,7 +317,7 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
         if walltime:
             s_walltime = strhms(walltime.total_seconds())
         else:
-            s_walltime = None
+            s_walltime = '-'
 
         # チャンネル番号と局名を取得
         chnum = int(j.get('channel'))
@@ -331,22 +331,22 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
             s_elapse = None
 
         print('Title:', j.get('rj_title'))
-        print('  Job Id:          ', j.get('rj_id'))
+        print('  Job Id:          ', j.get('rj_id', '-'))
         print('  Channel number:  ', chnum)
         print('  Channel name:    ', chname)
         print('  Start:           ', starttime)
         print('  End:             ', endtime)
         print('  Walltime:        ', s_walltime)
         print('  Elapse time:     ', s_elapse)
-        print('  Owner:           ', j.get('user'))
-        print('  Group:           ', j.get('group'))
-        print('  Tuner:           ', j.get('tuner'))
-        print('  State:           ', j.get('record_state'))
-        print('  Alert:           ', j.get('alert'))
-        print('  Job execute time:', j.get('Execution_Time'))
-        print('  Job create time: ', j.get('ctime'))
-        print('  Job modify time: ', j.get('mtime'))
-        print('  Execute host:    ', j.get('exec_host'))
+        print('  Owner:           ', j.get('user', '-'))
+        print('  Group:           ', j.get('group', '-'))
+        print('  Tuner:           ', j.get('tuner', '-'))
+        print('  State:           ', j.get('record_state', '-'))
+        print('  Alert:           ', j.get('alert', '-'))
+        print('  Job execute time:', j.get('Execution_Time', '-'))
+        print('  Job create time: ', j.get('ctime', '-'))
+        print('  Job modify time: ', j.get('mtime', '-'))
+        print('  Execute host:    ', j.get('exec_host', '-'))
 
 def strhms(sec):
     """
@@ -399,7 +399,7 @@ def eval_dateline(time, dateline):
     return (wday, year, mon, day, hour)
 
 def main():
-    mdl = importlib.import_module('recordjob.RecordJob' + scheduler)
+    mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
     cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
     rec = cls()
 
@@ -607,3 +607,12 @@ def main():
 main
 """
 main()
+#mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
+#cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
+#rec = cls()
+#rec._get_job_info()
+'''
+#print(rec._is_bs(1))
+#print(rec.jobs)
+#rec.add
+'''
