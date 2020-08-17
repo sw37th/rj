@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError, TimeoutExpired
 import hashlib
@@ -54,10 +55,8 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             job['channel'], job['rj_title'] = v.get('Job_Name').split('.', 1)
 
             # 録画時間
-            wt_h, wt_m, wt_s = list(
-                map(
-                    int,
-                    v.get('Resource_List').get('walltime').split(':')))
+            wt_h, wt_m, wt_s = [
+                int(i) for i in v.get('Resource_List').get('walltime').split(':')]
             job['walltime'] = timedelta(hours=wt_h, minutes=wt_m, seconds=wt_s)
 
             # ジョブの状態、録画開始時刻、録画終了時間、録画開始からの経過時間
@@ -76,10 +75,8 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             job['record_state'] = self.job_state.get(state)
 
             # 地上波(tt) or 衛星放送(bs)
-            if 'bs' in v.get('Resource_List'):
-                job['tuner'] = 'bs'
-            else:
-                job['tuner'] = 'tt'
+            job['tuner'] = [k for k in v.get('Resource_List').keys()
+                if k == 'tt' or k == 'bs'][0]
 
             # ジョブのオーナー、ジョブのグループ、ジョブの実行ホスト
             job['user'] = v.get('euser')
@@ -99,9 +96,29 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.joblist = sorted(
             self.joblist, key=lambda x:x['rec_begin'])
 
-    def get_job_info(self, date=None):
+    def get_job_info(self, jid='', date=None,):
+        """
+        ジョブ情報をリストに詰め、呼び出し元に返す
+        下記の引数が指定されている場合はそのジョブ情報のみ抽出する
+        jid:  ジョブID (str)
+        date: ジョブの実行日 (datetime)
+        """
+
         self._get_job_info()
-        return self.joblist
+        if jid:
+            # 指定されたジョブIDの情報のみ抽出
+            joblist = [i for i in self.joblist if i['rj_id'] in jid]
+        elif date:
+            # 指定された日に録画を開始するジョブの情報のみ抽出
+            nextday = date + timedelta(days=1)
+            joblist = [
+                i for i in self.joblist
+                    if i['rec_begin'] >= date and i['rec_begin'] < nextday]
+        else:
+            # 全ジョブ
+            joblist = deepcopy(self.joblist)
+
+        return joblist
 
     def _create_jobscript(self, ch, title, begin, rectime, repeat=''):
         """
@@ -161,7 +178,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 command,
                 stdout=PIPE,
                 stderr=PIPE,
-                #universal_newlines=True,
+                universal_newlines=True,
                 timeout=self.comm_timeout,
                 check=True,)
         except (TimeoutExpired, CalledProcessError) as err:
@@ -171,18 +188,20 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
     def add(self, ch, title, begin, rectime, repeat=''):
         """
-        ch:      チャンネル番号(string)
-        title:   番組名(string)
-        begin:   開始時間(datetime.datetime)
-        rectime: 録画時間(datetime.timedelta)
-        repeat:  繰り返しフラグ(string)
+        下記の引数にて作成したジョブスクリプトをサブミットする
+        ch:      チャンネル番号(str)
+        title:   番組名(str)
+        begin:   開始時間(datetime)
+        rectime: 録画時間(timedelta)
+        repeat:  繰り返しフラグ(str)
+
+        qsubコマンドの標準出力の文字列からジョブIDを切り出して返す
         """
         scriptname = self._create_jobscript(ch, title, begin, rectime, repeat)
 
         qsub = self.qsub[:]
         qsub.append(scriptname)
-        print(qsub)
         proc = self._run_command(qsub)
-        print('{}'.format(proc.stdout))
+        jid = proc.stdout.split('.', 1)[0]
 
-        return None
+        return jid
