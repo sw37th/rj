@@ -100,11 +100,9 @@ class RecordJobOpenpbsTest(TestCase):
                         "qtime":"Sun Aug 16 17:11:02 2020",
                         "Resource_List":{
                             "bs":"1",
-                            "walltime":"00:29:30"
-                        },
+                            "walltime":"00:29:30"},
                         "euser":"autumn",
-                        "egroup":"autumn"
-                    },
+                        "egroup":"autumn"},
                     "69.openpbs":{
                         "Job_Name":"181.bs_run",
                         "job_state":"R",
@@ -114,13 +112,11 @@ class RecordJobOpenpbsTest(TestCase):
                         "qtime":"Sun Aug 16 20:01:16 2020",
                         "Resource_List":{
                             "bs":"1",
-                            "walltime":"00:29:30"
-                        },
+                            "walltime":"00:29:30"},
                         "stime":"Sun Aug 16 20:01:50 2020",
                         "euser":"autumn",
                         "egroup":"autumn",
-                        "etime":"Sun Aug 16 20:01:50 2020"
-                    },
+                        "etime":"Sun Aug 16 20:01:50 2020"},
                     "70.openpbs":{
                         "Job_Name":"25.tt_wait",
                         "job_state":"W",
@@ -130,11 +126,9 @@ class RecordJobOpenpbsTest(TestCase):
                         "qtime":"Sun Aug 16 17:11:02 2020",
                         "Resource_List":{
                             "tt":"1",
-                            "walltime":"00:29:30"
-                        },
+                            "walltime":"00:29:30"},
                         "euser":"autumn",
-                        "egroup":"autumn"
-                    },
+                        "egroup":"autumn"},
                     "71.openpbs":{
                         "Job_Name":"25.tt_run",
                         "job_state":"R",
@@ -144,15 +138,11 @@ class RecordJobOpenpbsTest(TestCase):
                         "qtime":"Sun Aug 16 20:01:16 2020",
                         "Resource_List":{
                             "tt":"1",
-                            "walltime":"00:29:30"
-                        },
+                            "walltime":"00:29:30"},
                         "stime":"Sun Aug 16 20:01:50 2020",
                         "euser":"autumn",
                         "egroup":"autumn",
-                        "etime":"Sun Aug 16 20:01:50 2020"
-                    }
-                }
-            }""")
+                        "etime":"Sun Aug 16 20:01:50 2020"}}}""")
         joblist_expected = [
             {
                 'rj_id': '69',
@@ -286,4 +276,110 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(joblist, joblist_all)
 
     def test_get_tuner_num(self):
-        self.rec._get_tuner_num()
+        pbsnodes_single = dedent("""\
+            {
+                "nodes":{
+                    "node1":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":2}}}}""")
+        expected_single = {'bs': 2, 'tt': 2}
+
+        pbsnodes_multi = dedent("""\
+            {
+                "nodes":{
+                    "node1":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":2}},
+                    "node2":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":4,
+                            "tt":4}}}}""")
+        expected_multi = {'bs': 6, 'tt': 6}
+
+        pbsnodes_multi_hetero = dedent("""\
+            {
+                "nodes":{
+                    "node1":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":3,
+                            "tt":1}},
+                    "node2":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":6}}}}""")
+        expected_multi_hetero = {'bs': 5, 'tt': 7}
+
+        pbsnodes_include_offline = dedent("""\
+            {
+                "nodes":{
+                    "node1":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":4,
+                            "tt":1}},
+                    "node2":{
+                        "state":"offline",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":2}},
+                    "node3":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":6}}}}""")
+        expected_include_offline = {'bs': 6, 'tt': 7}
+
+        pbsnodes_include_jobbusy = dedent("""\
+            {
+                "nodes":{
+                    "node1":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":2,
+                            "tt":3}},
+                    "node2":{
+                        "state":"free",
+                        "resources_available":{
+                            "bs":4,
+                            "tt":4}},
+                    "node3":{
+                        "state":"job-busy",
+                        "resources_available":{
+                            "bs":3,
+                            "tt":1}}}}""")
+        expected_include_jobbusy = {'bs': 9, 'tt': 8}
+
+        proc = MagicMock()
+        self.rec._run_command = MagicMock(return_value=proc)
+
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_single
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_single)
+
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_multi
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_multi)
+
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_multi_hetero
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_multi_hetero)
+
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_include_offline
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_include_offline)
+
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_include_jobbusy
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_include_jobbusy)
