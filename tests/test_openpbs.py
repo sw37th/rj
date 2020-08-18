@@ -1,3 +1,4 @@
+from copy import deepcopy
 from unittest import TestCase
 from rjsched import RecordJobOpenpbs as rjo
 from unittest.mock import mock_open, patch, MagicMock, call
@@ -387,3 +388,187 @@ class RecordJobOpenpbsTest(TestCase):
             proc.stdout = pbsnodes_include_jobbusy
             self.rec._get_tuner_num()
             self.assertEqual(self.rec.tuners, expected_include_jobbusy)
+
+    def test_check_tuner_resource(self):
+        """
+        同時録画数がチューナー数を超えた場合に
+        当該ジョブのalert属性に警告文がつくことを確認
+        """
+        message = 'Not enough tuners'
+        self.rec._get_tuner_num = MagicMock()
+        self.rec.tuners = {'tt': 2, 'bs': 2}
+
+        # 'tt'、'bs'ともに同時録画数がチューナー数以内
+        joblist_no_exceeded = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 23, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 23, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 23, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 23, 59, 59),
+                'tuner': 'bs',
+                'alert': ''}]
+        expected_no_exceeded = ['', '', '', '', '', '']
+
+        self.rec.joblist = joblist_no_exceeded
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_no_exceeded)
+
+        # 'tt'の同時録画数がチューナー数を超過
+        joblist_exceeded_tt = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 23, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 23, 59, 59),
+                'tuner': 'bs',
+                'alert': ''}]
+        expected_exceeded_tt = [message, message, message, '', '', '']
+
+        self.rec.joblist = joblist_exceeded_tt
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_exceeded_tt)
+
+        # 'bs'の同時録画数がチューナー数を超過
+        joblist_exceeded_bs = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 23, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 23, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'bs',
+                'alert': ''}]
+        expected_exceeded_bs = ['', '', '', message, message, message]
+
+        self.rec.joblist = joblist_exceeded_bs
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_exceeded_bs)
+
+        # 境界値チェック。チューナー数以内
+        joblist_boundary_no_exceeded = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 29, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 29, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 30, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 30, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''}]
+        expected_boundary_no_exceeded = ['', '', '', '']
+
+        self.rec.joblist = joblist_boundary_no_exceeded
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_boundary_no_exceeded)
+
+        # 境界値チェック。チューナー数を超過
+        joblist_boundary_exceeded = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 30, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 59, 59),
+                'tuner': 'tt',
+                'alert': ''}]
+        expected_boundary_exceeded = [message, message, message]
+
+        self.rec.joblist = joblist_boundary_exceeded
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_boundary_exceeded)
