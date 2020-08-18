@@ -1,12 +1,12 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from subprocess import run, PIPE, STDOUT, DEVNULL, CalledProcessError, TimeoutExpired
-import hashlib
+from subprocess import run, PIPE, CalledProcessError, TimeoutExpired
+from textwrap import dedent
 import json
 import os
+import re
 import rjsched
 import sys
-import textwrap
 
 class RecordJobOpenpbs(rjsched.RecordJob):
     def __init__(self):
@@ -14,17 +14,18 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         pbsexec = '/work/pbs/bin/'
         self.name = 'RecordJobOpenpbs'
         self.qstat = [pbsexec + 'qstat', '-f', '-F', 'json']
-        self.pbsnodes = [pbsexec + 'pbsnodes', '-a']
+        self.pbsnodes = [pbsexec + 'pbsnodes', '-a', '-F', 'json']
         self.qsub = [pbsexec + 'qsub']
-        self.qalter = [pbsexec + 'qalter', '-a' ]
+        self.qalter = [pbsexec + 'qalter', '-a']
         self.scriptdir = '/home/autumn/jobsh'
         self.logdir = '/home/autumn/log'
         self.joblist = []
+        self.tuners = {'tt': 0, 'bs': 0}
 
     def __str__(self):
         return self.name
 
-    def _get_job_info(self):
+    def _get_job_info_all(self):
         """
         qstatコマンドの出力から、ジョブごとに下記の情報を取得し
         self.joblist[]に詰める
@@ -44,6 +45,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         'qtime':        ジョブのキュー追加時刻 (datetime)
         'ctime':        ジョブの作成時刻 (datetime)
         'mtime':        ジョブをMoMが最後にモニタした時刻 (datetime)
+        'alert':        チューナー不足の警告 (str)
         """
         current = datetime.now()
 
@@ -90,6 +92,9 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             job['mtime'] = datetime.strptime(
                 v.get('mtime'), "%a %b %d %H:%M:%S %Y")
 
+            # alert
+            job['alert'] = ''
+
             self.joblist.append(job)
 
         # 録画開始時刻で昇順にソート
@@ -104,7 +109,12 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         date: ジョブの実行日 (datetime)
         """
 
-        self._get_job_info()
+        # ジョブ情報リスト取得
+        self._get_job_info_all()
+
+        # 最大同時録画数のチェック
+        self._check_tuner_resource()
+
         if jid:
             # 指定されたジョブIDの情報のみ抽出
             joblist = [i for i in self.joblist if i['rj_id'] in jid]
@@ -141,7 +151,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             with open(scriptname, 'w') as f:
                 output = self.recdir + '/{}.{}'.format(title, ch)
                 f.write(
-                    textwrap.dedent('''\
+                    dedent('''\
                         #PBS -N {_ch}.{_title}
                         #PBS -a {_at}
                         #PBS -l walltime={_walltime}
@@ -205,3 +215,47 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         jid = proc.stdout.split('.', 1)[0]
 
         return jid
+
+    def _get_tuner_num(self):
+        """
+        利用可能なノードのカスタムリソース'tt'、'bs'を集計する
+        """
+        available = re.compile(r'free|job-busy')
+        proc = self._run_command(self.pbsnodes)
+        nodes = json.loads(proc.stdout).get('nodes', {})
+        for v in nodes.values():
+            if available.match(v.get('state', '')):
+                resources = v.get('resources_available', {})
+                self.tuners['tt'] += int(resources.get('tt', 0))
+                self.tuners['bs'] += int(resources.get('bs', 0))
+
+    def _check_tuner_resource(self):
+        """
+        チューナーの空き具合をチェックする
+        最大同時録画数を超過しているジョブには警告をつける
+        """
+        message = 'Not enough tuners'
+        self._get_tuner_num()
+        counter = {'tt': [], 'bs': []}
+
+        for job in self.joblist:
+            _type = job.get('tuner')
+            if len(counter.get(_type)) < self.tuners.get(_type):
+                # チューナーに空きがある
+                counter.get(_type).append(job)
+            else:
+                # ガベージコレクト
+                for counted in counter.get(_type):
+                    # counter内のジョブから録画終了しているものを削除
+                    if job.get('rec_begin') > counted.get('rec_end'):
+                        counter.get(_type).remove(counted)
+                # 改めてチューナーの空きを確認
+                if len(counter.get(_type)) < self.tuners.get(_type):
+                    # 空きがある
+                    counter.get(_type).append(job)
+                else:
+                    # 警告を追加
+                    job['alert'] = message
+                    for counted in counter.get(_type):
+                        # 現時点でcounterに積まれているジョブにも警告を追加
+                        counted['alert'] = message
