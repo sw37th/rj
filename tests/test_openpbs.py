@@ -80,7 +80,7 @@ class RecordJobOpenpbsTest(TestCase):
     @freeze_time('2020-08-16 20:03:00')
     def test_get_job_info_all(self):
         """
-        qstatコマンドの出力から内部的なジョブ情報リストに正しく変換されること
+        qstatコマンドの出力から内部的なジョブ情報リストに変換されることを確認
         """
         # qstatコマンド出力のダミー
         # 2020年08月16日 20時03分00秒(1597575780)の時点で
@@ -217,7 +217,7 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_get_job_info(self):
         """
-        get_job_info()の引数に応じたジョブ情報のリストが返ってくること
+        get_job_info()の引数に応じたジョブ情報のリストが返ってくることを確認
         """
         joblist_all = [
             {
@@ -276,6 +276,14 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(joblist, joblist_all)
 
     def test_get_tuner_num(self):
+        """
+        pbsnodesコマンドの出力に応じてカスタムリソース'bs'、'tt'が
+        集計されることを確認
+        """
+        proc = MagicMock()
+        self.rec._run_command = MagicMock(return_value=proc)
+
+        # 録画ノードが1台
         pbsnodes_single = dedent("""\
             {
                 "nodes":{
@@ -285,7 +293,12 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":2}}}}""")
         expected_single = {'bs': 2, 'tt': 2}
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_single
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_single)
 
+        # 録画ノードが複数台
         pbsnodes_multi = dedent("""\
             {
                 "nodes":{
@@ -300,7 +313,12 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":4,
                             "tt":4}}}}""")
         expected_multi = {'bs': 6, 'tt': 6}
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_multi
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_multi)
 
+        # 録画ノードが複数台、チューナー数が異なる
         pbsnodes_multi_hetero = dedent("""\
             {
                 "nodes":{
@@ -315,7 +333,12 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":6}}}}""")
         expected_multi_hetero = {'bs': 5, 'tt': 7}
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_multi_hetero
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_multi_hetero)
 
+        # 録画ノードが複数台、free/job-busy以外の状態のノードが含まれる
         pbsnodes_include_offline = dedent("""\
             {
                 "nodes":{
@@ -335,7 +358,12 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":6}}}}""")
         expected_include_offline = {'bs': 6, 'tt': 7}
+        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
+            proc.stdout = pbsnodes_include_offline
+            self.rec._get_tuner_num()
+            self.assertEqual(self.rec.tuners, expected_include_offline)
 
+        # 録画ノードが複数台、free/job-busy状態のノードのみ
         pbsnodes_include_jobbusy = dedent("""\
             {
                 "nodes":{
@@ -355,30 +383,6 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":3,
                             "tt":1}}}}""")
         expected_include_jobbusy = {'bs': 9, 'tt': 8}
-
-        proc = MagicMock()
-        self.rec._run_command = MagicMock(return_value=proc)
-
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_single
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_single)
-
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_multi
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_multi)
-
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_multi_hetero
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_multi_hetero)
-
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_include_offline
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_include_offline)
-
         with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
             proc.stdout = pbsnodes_include_jobbusy
             self.rec._get_tuner_num()
