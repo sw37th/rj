@@ -78,7 +78,7 @@ class RecordJobOpenpbsTest(TestCase):
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
     """
     @freeze_time('2020-08-16 20:03:00')
-    def test__get_job_info(self):
+    def test_get_job_info_all(self):
         """
         qstatコマンドの出力から内部的なジョブ情報リストに正しく変換されること
         """
@@ -169,7 +169,8 @@ class RecordJobOpenpbsTest(TestCase):
                 'group': 'autumn',
                 'qtime': datetime(2020, 8, 16, 20, 1, 16),
                 'ctime': datetime(2020, 8, 16, 20, 1, 16),
-                'mtime': datetime(2020, 8, 16, 20, 3, 24)},
+                'mtime': datetime(2020, 8, 16, 20, 3, 24),
+                'alert': ''},
             {
                 'rj_id': '71',
                 'channel': '25',
@@ -185,7 +186,8 @@ class RecordJobOpenpbsTest(TestCase):
                 'group': 'autumn',
                 'qtime': datetime(2020, 8, 16, 20, 1, 16),
                 'ctime': datetime(2020, 8, 16, 20, 1, 16),
-                'mtime': datetime(2020, 8, 16, 20, 3, 24)},
+                'mtime': datetime(2020, 8, 16, 20, 3, 24),
+                'alert': ''},
             {
                 'rj_id': '68',
                 'channel': '181',
@@ -199,7 +201,8 @@ class RecordJobOpenpbsTest(TestCase):
                 'group': 'autumn',
                 'qtime': datetime(2020, 8, 16, 17, 11, 2),
                 'ctime': datetime(2020, 8, 16, 17, 11, 2),
-                'mtime': datetime(2020, 8, 16, 17, 11, 2)},
+                'mtime': datetime(2020, 8, 16, 17, 11, 2),
+                'alert': ''},
             {
                 'rj_id': '70',
                 'channel': '25',
@@ -213,12 +216,13 @@ class RecordJobOpenpbsTest(TestCase):
                 'group': 'autumn',
                 'qtime': datetime(2020, 8, 16, 17, 11, 2),
                 'ctime': datetime(2020, 8, 16, 17, 11, 2),
-                'mtime': datetime(2020, 8, 16, 17, 11, 2)}]
+                'mtime': datetime(2020, 8, 16, 17, 11, 2),
+                'alert': ''}]
         proc = MagicMock()
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
 
-        self.rec._get_job_info()
+        self.rec._get_job_info_all()
         self.assertEqual(self.rec.joblist, joblist_expected)
 
     def test_get_job_info(self):
@@ -259,7 +263,8 @@ class RecordJobOpenpbsTest(TestCase):
                 'rj_id': '70',
                 'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
 
-        self.rec._get_job_info = MagicMock()
+        self.rec._get_job_info_all = MagicMock()
+        self.rec._check_tuner_resource = MagicMock()
         self.rec.joblist = joblist_all
 
         # ジョブID指定
@@ -279,3 +284,6 @@ class RecordJobOpenpbsTest(TestCase):
         # 指定なし
         joblist = self.rec.get_job_info()
         self.assertEqual(joblist, joblist_all)
+
+    def test_get_tuner_num(self):
+        self.rec._get_tuner_num()
