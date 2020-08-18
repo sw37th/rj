@@ -82,6 +82,12 @@ class RecordJobOpenpbsTest(TestCase):
         """
         qstatコマンドの出力から内部的なジョブ情報リストに正しく変換されること
         """
+        # qstatコマンド出力のダミー
+        # 2020年08月16日 20時03分00秒(1597575780)の時点で
+        #   68: 衛星放送 待機中(W)
+        #   69: 衛星放送 録画中(R)
+        #   70: 地上波 待機中(W)
+        #   71: 地上波 録画中(R)
         qstat_out = dedent("""\
             {
                 "Jobs":{
@@ -211,5 +217,65 @@ class RecordJobOpenpbsTest(TestCase):
         proc = MagicMock()
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
+
         self.rec._get_job_info()
         self.assertEqual(self.rec.joblist, joblist_expected)
+
+    def test_get_job_info(self):
+        """
+        get_job_info()の引数に応じたジョブ情報のリストが返ってくること
+        """
+        joblist_all = [
+            {
+                'rj_id': '69',
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
+            {
+                'rj_id': '71',
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
+            {
+                'rj_id': '68',
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)},
+            {
+                'rj_id': '70',
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
+        expected_jid69 = [
+            {
+                'rj_id': '69',
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)}]
+        expected_jid72 = []
+        expected_aug16 = [
+            {
+                'rj_id': '69',
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
+            {
+                'rj_id': '71',
+                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)}]
+        expected_aug17 = []
+        expected_aug18 = [
+            {
+                'rj_id': '68',
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)},
+            {
+                'rj_id': '70',
+                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
+
+        self.rec._get_job_info = MagicMock()
+        self.rec.joblist = joblist_all
+
+        # ジョブID指定
+        joblist = self.rec.get_job_info(jid='69')
+        self.assertEqual(joblist, expected_jid69)
+        joblist = self.rec.get_job_info(jid='72')
+        self.assertEqual(joblist, expected_jid72)
+
+        # 日付指定
+        joblist = self.rec.get_job_info(date=datetime(2020, 8, 16, 0, 0, 0))
+        self.assertEqual(joblist, expected_aug16)
+        joblist = self.rec.get_job_info(date=datetime(2020, 8, 17, 0, 0, 0))
+        self.assertEqual(joblist, expected_aug17)
+        joblist = self.rec.get_job_info(date=datetime(2020, 8, 18, 0, 0, 0))
+        self.assertEqual(joblist, expected_aug18)
+
+        # 指定なし
+        joblist = self.rec.get_job_info()
+        self.assertEqual(joblist, joblist_all)
