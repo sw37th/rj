@@ -17,7 +17,6 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.pbsnodes = [pbsexec + 'pbsnodes', '-a', '-F', 'json']
         self.qsub = [pbsexec + 'qsub']
         self.qalter = [pbsexec + 'qalter', '-a']
-        self.scriptdir = '/home/autumn/jobsh'
         self.logdir = '/home/autumn/log'
         self.joblist = []
         self.tuners = {'tt': 0, 'bs': 0}
@@ -45,7 +44,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         'qtime':        ジョブのキュー追加時刻 (datetime)
         'ctime':        ジョブの作成時刻 (datetime)
         'mtime':        ジョブをMoMが最後にモニタした時刻 (datetime)
-        'alert':        チューナー不足の警告 (str)
+        'alert':        警告メッセージ (str)
         """
         current = datetime.now()
 
@@ -204,26 +203,25 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         msg = 'Out of Tuners. Max: {}'
         self._get_tuner_num()
-        counter = {'tt': [], 'bs': []}
+        stack = {'tt': [], 'bs': []}
 
         for job in self.joblist:
             _type = job.get('tuner')
-            if len(counter.get(_type)) < self.tuners.get(_type):
+            if len(stack.get(_type)) < self.tuners.get(_type):
                 # チューナーに空きがある
-                counter.get(_type).append(job)
+                stack.get(_type).append(job)
             else:
                 # ガベージコレクト
-                for counted in counter.get(_type):
-                    # counter内のジョブから録画終了しているものを削除
-                    if job.get('rec_begin') > counted.get('rec_end'):
-                        counter.get(_type).remove(counted)
+                for stacked_job in stack.get(_type):
+                    # stack内のジョブから録画終了しているものを削除
+                    if job.get('rec_begin') > stacked_job.get('rec_end'):
+                        stack.get(_type).remove(stacked_job)
                 # 改めてチューナーの空きを確認
-                if len(counter.get(_type)) < self.tuners.get(_type):
+                if len(stack.get(_type)) < self.tuners.get(_type):
                     # 空きがある
-                    counter.get(_type).append(job)
+                    stack.get(_type).append(job)
                 else:
-                    # 警告を追加
-                    job['alert'] = msg.format(self.tuners.get(_type))
-                    for counted in counter.get(_type):
-                        # 現時点でcounterに積まれているジョブにも警告を追加
-                        counted['alert'] = msg.format(self.tuners.get(_type))
+                    stack.get(_type).append(job)
+                    for stacked_job in stack.get(_type):
+                        # 現時点でstackに積まれているジョブ全てに警告を追加
+                        stacked_job['alert'] = msg.format(self.tuners.get(_type))
