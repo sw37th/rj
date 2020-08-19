@@ -34,7 +34,7 @@ class RecordJobOpenpbsTest(TestCase):
         # 地上波
         expected_qsub_tt = [
             '/work/pbs/bin/qsub',
-            '-N', '15.test_tt',
+            '-N', 'test_tt.15',
             '-a', '202008192029.30',
             '-l', 'walltime=1770',
             '-l', 'tt=1',
@@ -43,8 +43,9 @@ class RecordJobOpenpbsTest(TestCase):
             '-W', 'umask=222',
             '-']
         expected_jobexec_tt = \
-            '/usr/local/bin/recpt1 --b25 --strip 15 - '\
-            '/home/autumn/rec/test_tt.15.'\
+            '/usr/local/bin/recpt1 --b25 --strip '\
+            '${PBS_JOBNAME##*.} - '\
+            '/home/autumn/rec/${PBS_JOBNAME}.'\
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '110.example.org'
 
@@ -58,7 +59,7 @@ class RecordJobOpenpbsTest(TestCase):
         # 衛星放送
         expected_qsub_tt = [
             '/work/pbs/bin/qsub',
-            '-N', '211.test_bs',
+            '-N', 'test_bs.211',
             '-a', '202008192029.30',
             '-l', 'walltime=1770',
             '-l', 'bs=1',
@@ -67,8 +68,9 @@ class RecordJobOpenpbsTest(TestCase):
             '-W', 'umask=222',
             '-']
         expected_jobexec_tt = \
-            '/usr/local/bin/recpt1 --b25 --strip --lnb 15 211 - '\
-            '/home/autumn/rec/test_bs.211.'\
+            '/usr/local/bin/recpt1 --b25 --strip --lnb 15 '\
+            '${PBS_JOBNAME##*.} - '\
+            '/home/autumn/rec/${PBS_JOBNAME}.'\
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '111.example.org'
 
@@ -97,7 +99,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 "Jobs":{
                     "68.openpbs":{
-                        "Job_Name":"181.bs_wait",
+                        "Job_Name":"bs_wait.181",
                         "job_state":"W",
                         "ctime":"Sun Aug 16 17:11:02 2020",
                         "Execution_Time":"Tue Aug 18 23:59:50 2020",
@@ -109,7 +111,7 @@ class RecordJobOpenpbsTest(TestCase):
                         "euser":"autumn",
                         "egroup":"autumn"},
                     "69.openpbs":{
-                        "Job_Name":"181.bs_run",
+                        "Job_Name":"bs_run.181",
                         "job_state":"R",
                         "ctime":"Sun Aug 16 20:01:16 2020",
                         "exec_host":"openpbs/0",
@@ -123,7 +125,7 @@ class RecordJobOpenpbsTest(TestCase):
                         "egroup":"autumn",
                         "etime":"Sun Aug 16 20:01:50 2020"},
                     "70.openpbs":{
-                        "Job_Name":"25.tt_wait",
+                        "Job_Name":"tt_wait.25",
                         "job_state":"W",
                         "ctime":"Sun Aug 16 17:11:02 2020",
                         "Execution_Time":"Tue Aug 18 23:59:50 2020",
@@ -135,7 +137,7 @@ class RecordJobOpenpbsTest(TestCase):
                         "euser":"autumn",
                         "egroup":"autumn"},
                     "71.openpbs":{
-                        "Job_Name":"25.tt_run",
+                        "Job_Name":"tt_run.25",
                         "job_state":"R",
                         "ctime":"Sun Aug 16 20:01:16 2020",
                         "exec_host":"openpbs/0",
