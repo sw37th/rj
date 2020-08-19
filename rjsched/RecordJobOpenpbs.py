@@ -130,62 +130,14 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return joblist
 
-    def _create_jobscript(self, ch, title, begin, rectime, repeat=''):
-        """
-        ジョブスクリプトファイルを作成し、ファイル名を返す
-        """
-        command = self.recpt1[:]
-        if self._is_bs(ch):
-            command.append('--lnb 15')
-            tuner = 'bs'
-        else:
-            tuner = 'tt'
-        at = begin.strftime('%Y%m%d%H%M.%S')
-        scriptname = '{}/{}.{}.{}.sh'.format(
-                self.scriptdir,
-                title,
-                at,
-                str(datetime.now().timestamp()),
-                )
-        try:
-            with open(scriptname, 'w') as f:
-                output = self.recdir + '/{}.{}'.format(title, ch)
-                f.write(
-                    dedent('''\
-                        #PBS -N {_ch}.{_title}
-                        #PBS -a {_at}
-                        #PBS -l walltime={_walltime}
-                        #PBS -l {_tuner}=1
-                        #PBS -j oe
-                        #PBS -o {_logdir}
-                        #PBS -e {_logdir}
-                        umask 022
-                        _jobid=`echo $PBS_JOBID | awk -F'.' '{{printf("%05d", $1)}}'`
-                        {_command} {_ch} - {_recdir}/{_title}.{_ch}.`date +%Y%m%d_%H%M.%S`.${{_jobid}}.ts
-                    ''').format(
-                        _ch=ch,
-                        _title=title,
-                        _at=at,
-                        _walltime=str(int(rectime.total_seconds())),
-                        _tuner=tuner,
-                        _logdir=self.logdir,
-                        _recdir=self.recdir,
-                        _command=' '.join(command),
-                    )
-                )
-        except (PermissionError, FileNotFoundError) as err:
-            print('cannot create jobscript: {}'.format(err))
-            sys.exit(1)
-
-        return scriptname
-
-    def _run_command(self, command):
+    def _run_command(self, command, _input=None):
         """
         コマンドを実行し、CompletedProcessオブジェクトを返す
         """
         try:
             proc = run(
                 command,
+                input=_input,
                 stdout=PIPE,
                 stderr=PIPE,
                 universal_newlines=True,
@@ -198,23 +150,39 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
     def add(self, ch, title, begin, rectime, repeat=''):
         """
-        下記の引数にて作成したジョブスクリプトをサブミットする
+        ジョブをサブミットする
         ch:      チャンネル番号(str)
         title:   番組名(str)
         begin:   開始時間(datetime)
         rectime: 録画時間(timedelta)
         repeat:  繰り返しフラグ(str)
 
-        qsubコマンドの標準出力の文字列からジョブIDを切り出して返す
+        qsubコマンドの出力するジョブIDからID番号のみを切り出して返す
         """
-        scriptname = self._create_jobscript(ch, title, begin, rectime, repeat)
 
-        qsub = self.qsub[:]
-        qsub.append(scriptname)
-        proc = self._run_command(qsub)
-        jid = proc.stdout.split('.', 1)[0]
+        recpt1 = self.recpt1[:]
+        tsfile = '{}/{}.{}.$(date +%Y%m%d_%H%M.%S).${{PBS_JOBID%.*}}.ts'.format(
+            self.recdir, title, ch)
+        if self._is_bs(ch):
+            recpt1.extend(['--lnb 15', ch, '-', tsfile])
+            tuner = 'bs'
+        else:
+            recpt1.extend([ch, '-', tsfile])
+            tuner = 'tt'
 
-        return jid
+        jobexec = ' '.join(recpt1)
+        qsub = self.qsub[:] + [
+                '-N', '{}.{}'.format(ch, title),
+                '-a', begin.strftime('%Y%m%d%H%M.%S'),
+                '-l', 'walltime={}'.format(str(int(rectime.total_seconds()))),
+                '-l', '{}=1'.format(tuner),
+                '-j', 'oe',
+                '-o', self.logdir,
+                '-W', 'umask=222',
+                '-',]
+
+        proc = self._run_command(qsub, jobexec)
+        return proc.stdout.split('.', 1)[0]
 
     def _get_tuner_num(self):
         """
