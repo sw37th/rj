@@ -24,6 +24,67 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def __str__(self):
         return self.name
 
+    def _run_command(self, command, _input=None):
+        """
+        コマンドを実行し、CompletedProcessオブジェクトを返す
+        """
+        try:
+            proc = run(
+                command,
+                input=_input,
+                stdout=PIPE,
+                stderr=PIPE,
+                universal_newlines=True,
+                timeout=self.comm_timeout,
+                check=True,)
+        except (TimeoutExpired, CalledProcessError) as err:
+            print('{} failed: {}'.format(command[0], err))
+            sys.exit(1)
+        return proc
+
+    def _get_tuner_num(self):
+        """
+        利用可能なノードのカスタムリソース'tt'、'bs'を集計する
+        """
+        available = re.compile(r'free|job-busy')
+        proc = self._run_command(self.pbsnodes)
+        nodes = json.loads(proc.stdout).get('nodes', {})
+        for v in nodes.values():
+            if available.match(v.get('state', '')):
+                resources = v.get('resources_available', {})
+                self.tuners['tt'] += int(resources.get('tt', 0))
+                self.tuners['bs'] += int(resources.get('bs', 0))
+
+    def _check_tuner_resource(self):
+        """
+        チューナーの空き具合をチェックする
+        最大同時録画数を超過しているジョブには警告をつける
+        """
+        msg = 'Out of Tuners. Max: {}'
+        self._get_tuner_num()
+        stack = {'tt': [], 'bs': []}
+
+        for job in self.joblist:
+            _type = job.get('tuner')
+            if len(stack.get(_type)) < self.tuners.get(_type):
+                # チューナーに空きがある
+                stack.get(_type).append(job)
+            else:
+                # ガベージコレクト
+                for stacked_job in stack.get(_type):
+                    # stack内のジョブから録画終了しているものを削除
+                    if job.get('rec_begin') > stacked_job.get('rec_end'):
+                        stack.get(_type).remove(stacked_job)
+                # 改めてチューナーの空きを確認
+                if len(stack.get(_type)) < self.tuners.get(_type):
+                    # 空きがある
+                    stack.get(_type).append(job)
+                else:
+                    stack.get(_type).append(job)
+                    for stacked_job in stack.get(_type):
+                        # 現時点でstackに積まれているジョブ全てに警告を追加
+                        stacked_job['alert'] = msg.format(self.tuners.get(_type))
+
     def _get_job_info_all(self):
         """
         qstatコマンドの出力から、ジョブごとに下記の情報を取得し
@@ -129,24 +190,6 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return joblist
 
-    def _run_command(self, command, _input=None):
-        """
-        コマンドを実行し、CompletedProcessオブジェクトを返す
-        """
-        try:
-            proc = run(
-                command,
-                input=_input,
-                stdout=PIPE,
-                stderr=PIPE,
-                universal_newlines=True,
-                timeout=self.comm_timeout,
-                check=True,)
-        except (TimeoutExpired, CalledProcessError) as err:
-            print('{} failed: {}'.format(command[0], err))
-            sys.exit(1)
-        return proc
-
     def add(self, ch, title, begin, rectime, repeat=''):
         """
         ジョブをサブミットする
@@ -183,46 +226,3 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         proc = self._run_command(qsub, jobexec)
         return proc.stdout.split('.', 1)[0]
-
-    def _get_tuner_num(self):
-        """
-        利用可能なノードのカスタムリソース'tt'、'bs'を集計する
-        """
-        available = re.compile(r'free|job-busy')
-        proc = self._run_command(self.pbsnodes)
-        nodes = json.loads(proc.stdout).get('nodes', {})
-        for v in nodes.values():
-            if available.match(v.get('state', '')):
-                resources = v.get('resources_available', {})
-                self.tuners['tt'] += int(resources.get('tt', 0))
-                self.tuners['bs'] += int(resources.get('bs', 0))
-
-    def _check_tuner_resource(self):
-        """
-        チューナーの空き具合をチェックする
-        最大同時録画数を超過しているジョブには警告をつける
-        """
-        msg = 'Out of Tuners. Max: {}'
-        self._get_tuner_num()
-        stack = {'tt': [], 'bs': []}
-
-        for job in self.joblist:
-            _type = job.get('tuner')
-            if len(stack.get(_type)) < self.tuners.get(_type):
-                # チューナーに空きがある
-                stack.get(_type).append(job)
-            else:
-                # ガベージコレクト
-                for stacked_job in stack.get(_type):
-                    # stack内のジョブから録画終了しているものを削除
-                    if job.get('rec_begin') > stacked_job.get('rec_end'):
-                        stack.get(_type).remove(stacked_job)
-                # 改めてチューナーの空きを確認
-                if len(stack.get(_type)) < self.tuners.get(_type):
-                    # 空きがある
-                    stack.get(_type).append(job)
-                else:
-                    stack.get(_type).append(job)
-                    for stacked_job in stack.get(_type):
-                        # 現時点でstackに積まれているジョブ全てに警告を追加
-                        stacked_job['alert'] = msg.format(self.tuners.get(_type))
