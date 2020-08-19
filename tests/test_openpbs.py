@@ -394,7 +394,7 @@ class RecordJobOpenpbsTest(TestCase):
         同時録画数がチューナー数を超えた場合に
         当該ジョブのalert属性に警告文がつくことを確認
         """
-        message = 'Not enough tuners'
+        message = 'Out of Tuners. Max: 2'
         self.rec._get_tuner_num = MagicMock()
         self.rec.tuners = {'tt': 2, 'bs': 2}
 
