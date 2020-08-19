@@ -53,7 +53,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         for k, v in jobs.items():
             # ジョブID、チャンネル番号、番組名
             job = {'rj_id': k.split('.')[0]}
-            job['channel'], job['rj_title'] = v.get('Job_Name').split('.', 1)
+            job['rj_title'], job['channel'] = v.get('Job_Name').split('.', 1)
 
             # 録画時間
             wt_h, wt_m, wt_s = [
@@ -159,19 +159,20 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         qsubコマンドの出力するジョブIDからID番号のみを切り出して返す
         """
 
+        recpt1_args = \
+            '${{PBS_JOBNAME##*.}} - {}/${{PBS_JOBNAME}}.'\
+            '$(date +%Y%m%d_%H%M.%S).${{PBS_JOBID%.*}}.ts'.format(self.recdir)
         recpt1 = self.recpt1[:]
-        tsfile = '{}/{}.{}.$(date +%Y%m%d_%H%M.%S).${{PBS_JOBID%.*}}.ts'.format(
-            self.recdir, title, ch)
         if self._is_bs(ch):
-            recpt1.extend(['--lnb 15', ch, '-', tsfile])
+            recpt1.extend(['--lnb 15', recpt1_args])
             tuner = 'bs'
         else:
-            recpt1.extend([ch, '-', tsfile])
+            recpt1.append(recpt1_args)
             tuner = 'tt'
 
         jobexec = ' '.join(recpt1)
         qsub = self.qsub[:] + [
-                '-N', '{}.{}'.format(ch, title),
+                '-N', '{}.{}'.format(title, ch),
                 '-a', begin.strftime('%Y%m%d%H%M.%S'),
                 '-l', 'walltime={}'.format(str(int(rectime.total_seconds()))),
                 '-l', '{}=1'.format(tuner),
