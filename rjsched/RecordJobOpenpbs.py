@@ -234,7 +234,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         チューナーの空き具合をチェックする
         最大同時録画数を超過しているジョブには警告をつける
         """
-        message = 'Not enough tuners'
+        msg = 'Out of Tuners. Max: {}'
         self._get_tuner_num()
         counter = {'tt': [], 'bs': []}
 
@@ -255,7 +255,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                     counter.get(_type).append(job)
                 else:
                     # 警告を追加
-                    job['alert'] = message
+                    job['alert'] = msg.format(self.tuners.get(_type))
                     for counted in counter.get(_type):
                         # 現時点でcounterに積まれているジョブにも警告を追加
-                        counted['alert'] = message
+                        counted['alert'] = msg.format(self.tuners.get(_type))
