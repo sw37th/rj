@@ -16,6 +16,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.qstat = [pbsexec + 'qstat', '-f', '-F', 'json']
         self.pbsnodes = [pbsexec + 'pbsnodes', '-a', '-F', 'json']
         self.qsub = [pbsexec + 'qsub']
+        self.qdel = [pbsexec + 'qdel']
         self.qalter = [pbsexec + 'qalter', '-a']
         self.logdir = '/home/autumn/log'
         self.joblist = []
@@ -107,6 +108,8 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         'mtime':        ジョブをMoMが最後にモニタした時刻 (datetime)
         'alert':        警告メッセージ (str)
         """
+        # 同一インスタンスで複数回呼ばれた際に古い情報を返さないよう毎回クリアする
+        self.joblist.clear()
         current = datetime.now()
 
         proc = self._run_command(self.qstat)
@@ -224,5 +227,16 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 '-W', 'umask=222',
                 '-',]
 
-        proc = self._run_command(qsub, jobexec)
+        proc = self._run_command(command=qsub, _input=jobexec)
         return proc.stdout.split('.', 1)[0]
+
+    def remove(self, jid=''):
+        """
+        引数で与えられたIDのジョブを削除する
+        FIXME: 複数ジョブの一括削除
+        """
+        joblist = self.get_job_info(jid=jid)
+        if joblist:
+            qdel = self.qdel[:]
+            qdel.append(jid)
+            self._run_command(qdel)
