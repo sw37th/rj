@@ -86,7 +86,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                         # 現時点でstackに積まれているジョブ全てに警告を追加
                         stacked_job['alert'] = msg.format(self.tuners.get(_type))
 
-    def _get_job_info_all(self):
+    def _fetch_joblist(self):
         """
         qstatコマンドの出力から、ジョブごとに下記の情報を取得し
         self.joblist[]に詰める
@@ -173,7 +173,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
 
         # ジョブ情報リスト取得
-        self._get_job_info_all()
+        self._fetch_joblist()
 
         # 最大同時録画数のチェック
         self._check_tuner_resource()
