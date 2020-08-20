@@ -1,7 +1,7 @@
 from copy import deepcopy
 from unittest import TestCase
 from rjsched import RecordJobOpenpbs as rjo
-from unittest.mock import mock_open, patch, MagicMock, call
+from unittest.mock import mock_open, patch, MagicMock
 from datetime import datetime, timedelta
 from subprocess import PIPE, STDOUT, DEVNULL
 from textwrap import dedent
@@ -53,7 +53,7 @@ class RecordJobOpenpbsTest(TestCase):
             timedelta(seconds=1770))
 
         self.rec._run_command.assert_called_with(
-            expected_qsub_tt, expected_jobexec_tt)
+            command=expected_qsub_tt, _input=expected_jobexec_tt)
         self.assertEqual(jid, '110')
 
         # 衛星放送
@@ -78,14 +78,14 @@ class RecordJobOpenpbsTest(TestCase):
             timedelta(seconds=1770))
 
         self.rec._run_command.assert_called_with(
-            expected_qsub_tt, expected_jobexec_tt)
+            command=expected_qsub_tt, _input=expected_jobexec_tt)
         self.assertEqual(jid, '111')
 
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
     """
     @freeze_time('2020-08-16 20:03:00')
-    def test_get_job_info_all(self):
+    def test_fetch_joblist(self):
         """
         qstatコマンドの出力から内部的なジョブ情報リストに変換されることを確認
         """
@@ -219,7 +219,7 @@ class RecordJobOpenpbsTest(TestCase):
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
 
-        self.rec._get_job_info_all()
+        self.rec._fetch_joblist()
         self.assertEqual(self.rec.joblist, joblist_expected)
 
     def test_get_job_info(self):
@@ -260,7 +260,7 @@ class RecordJobOpenpbsTest(TestCase):
                 'rj_id': '70',
                 'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
 
-        self.rec._get_job_info_all = MagicMock()
+        self.rec._fetch_joblist = MagicMock()
         self.rec._check_tuner_resource = MagicMock()
         self.rec.joblist = joblist_all
 
