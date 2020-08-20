@@ -222,6 +222,10 @@ class RecordJobOpenpbsTest(TestCase):
         self.rec._fetch_joblist()
         self.assertEqual(self.rec.joblist, joblist_expected)
 
+        # 同一インスタンスで2回呼んでも古いjoblistはクリアされている
+        self.rec._fetch_joblist()
+        self.assertEqual(self.rec.joblist, joblist_expected)
+
     def test_get_job_info(self):
         """
         get_job_info()の引数に応じたジョブ情報のリストが返ってくることを確認
