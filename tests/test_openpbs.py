@@ -81,6 +81,28 @@ class RecordJobOpenpbsTest(TestCase):
             command=expected_qsub_tt, _input=expected_jobexec_tt)
         self.assertEqual(jid, '111')
 
+    def test_remove(self):
+        """
+        ジョブ削除の際のqdelコマンドと引数を確認
+        削除対象のジョブが存在しない場合は_run_command()は呼ばれない
+        """
+        self.rec._run_command = MagicMock()
+
+        # 引数のIDのジョブが存在する
+        valid_jid = '1'
+        self.rec.get_job_info = MagicMock(return_value={'rj_id': valid_jid})
+        expected_command = ['/work/pbs/bin/qdel', valid_jid]
+        self.rec.remove(valid_jid)
+        self.rec._run_command.assert_called_with(expected_command)
+
+        self.rec._run_command.reset_mock()
+
+        # 引数のIDのジョブが存在しない
+        invalid_jid = '2'
+        self.rec.get_job_info = MagicMock(return_value={})
+        self.rec.remove(invalid_jid)
+        self.rec._run_command.assert_not_called()
+
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
     """
