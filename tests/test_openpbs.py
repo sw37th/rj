@@ -83,32 +83,93 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_remove(self):
         """
-        ジョブ削除の際のqdelコマンドと引数を確認
-        削除対象のジョブが存在しない場合は_run_command()は呼ばれない
+        ジョブ削除の際のqdelコマンドと引数、戻り値を確認
         """
         self.rec._run_command = MagicMock()
         self.rec.get_job_info = MagicMock()
+        jid = '1'
 
         # 引数のIDのジョブが存在する
-        jid_valid = '1'
-        expected_joblist = [{'rj_id': jid_valid}]
-        expected_command = ['/work/pbs/bin/qdel', jid_valid]
+        expected_joblist = [{'rj_id': jid}]
+        expected_command = ['/work/pbs/bin/qdel', jid]
 
         self.rec.get_job_info.return_value = expected_joblist
 
-        joblist = self.rec.remove(jid_valid)
+        joblist = self.rec.remove(jid)
         self.rec._run_command.assert_called_with(expected_command)
         self.assertEqual(joblist, expected_joblist)
 
+        # _run_commandのMagicMockをリセット
         self.rec._run_command.reset_mock()
 
-        # 引数のIDのジョブが存在しない
-        jid_invalid = '2'
-
+        # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
         self.rec.get_job_info.return_value = []
 
-        joblist = self.rec.remove(jid_invalid)
+        joblist = self.rec.remove(jid)
         self.rec._run_command.assert_not_called()
+        self.assertEqual(joblist, [])
+
+    def test_change_begin(self):
+        """
+        録画開始時間変更(時刻指定)の際のqalterコマンドと引数、戻り値を確認
+        """
+        self.rec._run_command = MagicMock()
+        self.rec.get_job_info = MagicMock()
+        begin = datetime(2020, 8, 16, 0, 0, 0)
+        jid = '1'
+
+        # 引数のIDのジョブが存在する
+        jobinfo = {'rj_id': jid}
+        expected_joblist = [jobinfo, jobinfo]
+        expected_command = [
+            '/work/pbs/bin/qalter', '-a', '202008160000.00', jid]
+
+        self.rec.get_job_info.return_value = [jobinfo]
+
+        joblist = self.rec.change_begin(jid, begin)
+        self.rec._run_command.assert_called_with(expected_command)
+        self.assertEqual(joblist, expected_joblist)
+
+        # _run_commandのMagicMockをリセット
+        self.rec._run_command.reset_mock()
+
+        # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
+        self.rec.get_job_info.return_value = []
+
+        joblist = self.rec.change_begin(jid, begin)
+        self.rec._run_command.assert_not_called
+        self.assertEqual(joblist, [])
+
+    def test_change_begin_delta(self):
+        """
+        録画開始時間変更(相対時刻)の際のqalterコマンドと引数、戻り値を確認
+        """
+        self.rec._run_command = MagicMock()
+        self.rec.get_job_info = MagicMock()
+        begin = datetime(2020, 8, 16, 0, 0, 0)
+        delta = timedelta(seconds=300)
+        jid = '1'
+
+        # 引数のIDのジョブが存在する
+        jobinfo = {'rj_id': jid, 'rec_begin': begin}
+        expected_joblist = [jobinfo, jobinfo]
+        expected_command = [
+            '/work/pbs/bin/qalter', '-a', '202008160005.00', jid]
+
+        self.rec.get_job_info.return_value = [jobinfo]
+
+        joblist = self.rec.change_begin_delta(jid, delta)
+        self.rec._run_command.assert_called_with(expected_command)
+        self.assertEqual(joblist, expected_joblist)
+
+        # _run_commandのMagicMockをリセット
+        self.rec._run_command.reset_mock
+
+        # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
+        self.rec.get_job_info.return_value = []
+
+        joblist = self.rec.change_begin_delta(jid, delta)
+        self.rec._run_command.assert_not_called
         self.assertEqual(joblist, [])
 
     """
