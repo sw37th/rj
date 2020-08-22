@@ -87,21 +87,29 @@ class RecordJobOpenpbsTest(TestCase):
         削除対象のジョブが存在しない場合は_run_command()は呼ばれない
         """
         self.rec._run_command = MagicMock()
+        self.rec.get_job_info = MagicMock()
 
         # 引数のIDのジョブが存在する
-        valid_jid = '1'
-        self.rec.get_job_info = MagicMock(return_value={'rj_id': valid_jid})
-        expected_command = ['/work/pbs/bin/qdel', valid_jid]
-        self.rec.remove(valid_jid)
+        jid_valid = '1'
+        expected_joblist = [{'rj_id': jid_valid}]
+        expected_command = ['/work/pbs/bin/qdel', jid_valid]
+
+        self.rec.get_job_info.return_value = expected_joblist
+
+        joblist = self.rec.remove(jid_valid)
         self.rec._run_command.assert_called_with(expected_command)
+        self.assertEqual(joblist, expected_joblist)
 
         self.rec._run_command.reset_mock()
 
         # 引数のIDのジョブが存在しない
-        invalid_jid = '2'
-        self.rec.get_job_info = MagicMock(return_value={})
-        self.rec.remove(invalid_jid)
+        jid_invalid = '2'
+
+        self.rec.get_job_info.return_value = []
+
+        joblist = self.rec.remove(jid_invalid)
         self.rec._run_command.assert_not_called()
+        self.assertEqual(joblist, [])
 
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
@@ -326,10 +334,9 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":2}}}}""")
         expected_single = {'bs': 2, 'tt': 2}
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_single
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_single)
+        proc.stdout = pbsnodes_single
+        tuners = self.rec._get_tuner_num()
+        self.assertEqual(tuners, expected_single)
 
         # 録画ノードが複数台
         pbsnodes_multi = dedent("""\
@@ -346,10 +353,9 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":4,
                             "tt":4}}}}""")
         expected_multi = {'bs': 6, 'tt': 6}
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_multi
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_multi)
+        proc.stdout = pbsnodes_multi
+        tuners = self.rec._get_tuner_num()
+        self.assertEqual(tuners, expected_multi)
 
         # 録画ノードが複数台、チューナー数が異なる
         pbsnodes_multi_hetero = dedent("""\
@@ -366,10 +372,9 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":6}}}}""")
         expected_multi_hetero = {'bs': 5, 'tt': 7}
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_multi_hetero
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_multi_hetero)
+        proc.stdout = pbsnodes_multi_hetero
+        tuners = self.rec._get_tuner_num()
+        self.assertEqual(tuners, expected_multi_hetero)
 
         # 録画ノードが複数台、free/job-busy以外の状態のノードが含まれる
         pbsnodes_include_offline = dedent("""\
@@ -391,10 +396,9 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":2,
                             "tt":6}}}}""")
         expected_include_offline = {'bs': 6, 'tt': 7}
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_include_offline
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_include_offline)
+        proc.stdout = pbsnodes_include_offline
+        tuners = self.rec._get_tuner_num()
+        self.assertEqual(tuners, expected_include_offline)
 
         # 録画ノードが複数台、free/job-busy状態のノードのみ
         pbsnodes_include_jobbusy = dedent("""\
@@ -416,10 +420,9 @@ class RecordJobOpenpbsTest(TestCase):
                             "bs":3,
                             "tt":1}}}}""")
         expected_include_jobbusy = {'bs': 9, 'tt': 8}
-        with patch.dict(self.rec.tuners, {'tt': 0, 'bs': 0}, clear=True):
-            proc.stdout = pbsnodes_include_jobbusy
-            self.rec._get_tuner_num()
-            self.assertEqual(self.rec.tuners, expected_include_jobbusy)
+        proc.stdout = pbsnodes_include_jobbusy
+        tuners = self.rec._get_tuner_num()
+        self.assertEqual(tuners, expected_include_jobbusy)
 
     def test_check_tuner_resource(self):
         """
@@ -427,8 +430,7 @@ class RecordJobOpenpbsTest(TestCase):
         当該ジョブのalert属性に警告文がつくことを確認
         """
         message = 'Out of Tuners. Max: 2'
-        self.rec._get_tuner_num = MagicMock()
-        self.rec.tuners = {'tt': 2, 'bs': 2}
+        self.rec._get_tuner_num = MagicMock(return_value={'tt': 2, 'bs': 2})
 
         # 'tt'、'bs'ともに同時録画数がチューナー数以内
         joblist_no_exceeded = [
