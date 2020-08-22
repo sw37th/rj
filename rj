@@ -500,13 +500,16 @@ def main():
             # 相対時刻で変更
             delta = parse_time_delta(args.get('DELTATIME'))
             if not delta:
-                print('invalid DELTATIME:', args.get('DELTATIME'))
+                print('invalid DELTATIME: {}'.format(args.get('DELTATIME')))
                 sys.exit(1)
-            joblist = rec.change_begin_delta(jid, delta)
+            joblist = rec.change_begin(jid, delta=delta)
         else:
             # 絶対時刻で変更
-            begin = check_start_time(args.get('DATE'), args.get('TIME'))
+            d = args.get('DATE')
+            t = args.get('TIME')
+            begin = check_start_time(d, t)
             if not begin:
+                print('invalid DATE TIME: {} {}'.format(d, t))
                 sys.exit(1)
             joblist = rec.change_begin(jid, begin)
 
@@ -526,10 +529,16 @@ def main():
         if m:
             # 現在の録画時間からの差分で変更
             delta = parse_time_delta(rectime_str)
-            joblist = rec.change_rectime_delta(jid, delta)
+            if not delta:
+                print('invalid RECORDINGTIME: {}'.format(rectime_str))
+                sys.exit(1)
+            joblist = rec.change_rectime(jid, delta=delta)
         else:
             # 指定の録画時間で変更
             rectime = parse_time(rectime_str)
+            if not rectime:
+                print('invalid RECORDINGTIME: {}'.format(rectime_str))
+                sys.exit(1)
             joblist = rec.change_rectime(jid, rectime)
 
         if joblist:
