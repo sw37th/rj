@@ -7,8 +7,7 @@ Usage:
   rj list [DATE]
   rj show JOBID
   rj modbegin JOBID (DELTATIME | DATE TIME)
-  rj totalrec JOBID RECORDINGTIME
-  rj extendrec JOBID DELTATIME
+  rj modrectime JOBID RECORDINGTIME
   rj setrep JOBID TYPE
   rj unsetrep JOBID
   rj listch rj -h | --help
@@ -446,7 +445,18 @@ def main():
         """
         jid = args.get('JOBID')[0]
 
+        # 削除対象ジョブを表示
+        jobinfo = rec.get_job_info(jid)
+        if not jobinfo:
+            print('no such jobid: {}'.format(jid))
+            sys.exit(1)
+
+        print('REMOVE JOB:')
+        print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
+
         rec.remove(jid)
+
+        print('\nCURRENT JOBS:')
         jobinfo = rec.get_job_info()
         print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
 
@@ -486,84 +496,46 @@ def main():
         """
         jid = args.get('JOBID')[0]
 
-        origin = rec.get_job_info(jid=jid)[0]
-        if not origin:
-            print('No such jobid:', ', '.join(jid))
-            sys.exit(1)
-
         if args.get('DELTATIME'):
             # 相対時刻で変更
             delta = parse_time_delta(args.get('DELTATIME'))
             if not delta:
                 print('invalid DELTATIME:', args.get('DELTATIME'))
                 sys.exit(1)
-            rec.change_begin_delta(origin, delta)
+            joblist = rec.change_begin_delta(jid, delta)
         else:
             # 絶対時刻で変更
             begin = check_start_time(args.get('DATE'), args.get('TIME'))
             if not begin:
                 sys.exit(1)
-            rec.change_begin(origin, begin)
+            joblist = rec.change_begin(jid, begin)
 
-        changed = rec.get_job_info(jid=jid)[0]
+        if joblist:
+            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+                '(Start time changed)')
 
-        # 変更前と変更後のジョブ情報を表示
-        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
-        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
-                      '(Start time changed)')
-
-    elif args.get('totalrec'):
+    elif args.get('modrectime'):
         """
         登録済み録画ジョブの録画時間を再設定する。
-        引数で渡された値を新しい録画時間とする。
         """
         jid = args.get('JOBID')[0]
 
-        origin = rec.get_job_info(jid=jid)[0]
-        if not origin:
-            print('No such jobid:', ', '.join(jid))
-            sys.exit(1)
+        rectime_str = args.get('RECORDINGTIME')
+        m = re.search(r'.*(\+|-)', rectime_str)
+        if m:
+            # 現在の録画時間からの差分で変更
+            delta = parse_time_delta(rectime_str)
+            joblist = rec.change_rectime_delta(jid, delta)
+        else:
+            # 指定の録画時間で変更
+            rectime = parse_time(rectime_str)
+            joblist = rec.change_rectime(jid, rectime)
 
-        # 'RECORDINGTIME'の値をそのまま新録画時間として設定
-        rectime = parse_time(args.get('RECORDINGTIME'))
-        if not rectime:
-            print('invalid RECORDINGTIME:', args.get('RECORDINGTIME'))
-            sys.exit(1)
-
-        rec.change_rec(origin, rectime)
-        changed = rec.get_job_info(jid=jid)[0]
-
-        # 変更前と変更後のジョブ情報を表示
-        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
-        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
-                      '(Recording time changed)')
-
-    elif args.get('extendrec'):
-        """
-        登録済み録画ジョブの録画時間を再設定する。
-        現在の録画時間を引数で渡された時間分伸長(短縮)する。
-        """
-        jid = args.get('JOBID')[0]
-
-        origin = rec.get_job_info(jid=jid)[0]
-        if not origin:
-            print('No such jobid:', ', '.join(jid))
-            sys.exit(1)
-
-        # 現在の録画時間と'RECORDINGTIME'の差分を新録画時間として設定
-        delta = parse_time_delta(args.get('DELTATIME'))
-        if not delta:
-            print('invalid DELTATIME:', args.get('DELTATIME'))
-            sys.exit(1)
-        #rectime = origin[0].get('walltime') + rectime_delta # ここはrec.extend_rec()内で処理する予定
-
-        rec.extend_rec(origin, delta)
-        changed = rec.get_job_info(jid=jid)[0]
-
-        # 変更前と変更後のジョブ情報を表示
-        print_joblist([origin], chinfo, dateline_hour, wormup_sec)
-        print_joblist([changed], chinfo, dateline_hour, wormup_sec,
-                      '(Recording time changed)')
+        if joblist:
+            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+                '(Recording time changed)')
 
     elif args.get('setrep') or args.get('unsetrep'):
         """
@@ -607,12 +579,3 @@ def main():
 main
 """
 main()
-#mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
-#cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
-#rec = cls()
-#rec._get_job_info()
-'''
-#print(rec._is_bs(1))
-#print(rec.jobs)
-#rec.add
-'''
