@@ -17,10 +17,9 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.pbsnodes = [pbsexec + 'pbsnodes', '-a', '-F', 'json']
         self.qsub = [pbsexec + 'qsub']
         self.qdel = [pbsexec + 'qdel']
-        self.qalter = [pbsexec + 'qalter', '-a']
+        self.qalter = [pbsexec + 'qalter']
         self.logdir = '/home/autumn/log'
         self.joblist = []
-        self.tuners = {'tt': 0, 'bs': 0}
 
     def __str__(self):
         return self.name
@@ -47,14 +46,17 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         利用可能なノードのカスタムリソース'tt'、'bs'を集計する
         """
+        tuners = {'tt': 0, 'bs': 0}
+
         available = re.compile(r'free|job-busy')
         proc = self._run_command(self.pbsnodes)
         nodes = json.loads(proc.stdout).get('nodes', {})
         for v in nodes.values():
             if available.match(v.get('state', '')):
                 resources = v.get('resources_available', {})
-                self.tuners['tt'] += int(resources.get('tt', 0))
-                self.tuners['bs'] += int(resources.get('bs', 0))
+                tuners['tt'] += int(resources.get('tt', 0))
+                tuners['bs'] += int(resources.get('bs', 0))
+        return tuners
 
     def _check_tuner_resource(self):
         """
@@ -62,12 +64,12 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         最大同時録画数を超過しているジョブには警告をつける
         """
         msg = 'Out of Tuners. Max: {}'
-        self._get_tuner_num()
+        tuners = self._get_tuner_num()
         stack = {'tt': [], 'bs': []}
 
         for job in self.joblist:
             _type = job.get('tuner')
-            if len(stack.get(_type)) < self.tuners.get(_type):
+            if len(stack.get(_type)) < tuners.get(_type):
                 # チューナーに空きがある
                 stack.get(_type).append(job)
             else:
@@ -77,14 +79,14 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                     if job.get('rec_begin') > stacked_job.get('rec_end'):
                         stack.get(_type).remove(stacked_job)
                 # 改めてチューナーの空きを確認
-                if len(stack.get(_type)) < self.tuners.get(_type):
+                if len(stack.get(_type)) < tuners.get(_type):
                     # 空きがある
                     stack.get(_type).append(job)
                 else:
                     stack.get(_type).append(job)
                     for stacked_job in stack.get(_type):
                         # 現時点でstackに積まれているジョブ全てに警告を追加
-                        stacked_job['alert'] = msg.format(self.tuners.get(_type))
+                        stacked_job['alert'] = msg.format(tuners.get(_type))
 
     def _fetch_joblist(self):
         """
@@ -233,10 +235,47 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def remove(self, jid=''):
         """
         引数で与えられたIDのジョブを削除する
-        FIXME: 複数ジョブの一括削除
+        FIXME: 引数をstrではなくlistに変更して複数ジョブを一括削除
         """
-        joblist = self.get_job_info(jid=jid)
+        qdel = self.qdel[:]
+        qdel.append(jid)
+        self._run_command(qdel)
+
+    def change_begin(self, jid, begin):
+        """
+        録画ジョブの開始時刻を指定時刻に変更
+        変更前と変更後のジョブ情報をリストに詰めて返す
+        """
+        joblist = self.get_job_info(jid)
         if joblist:
-            qdel = self.qdel[:]
-            qdel.append(jid)
-            self._run_command(qdel)
+            qalter = self.qalter[:]
+            qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
+            self._run_command(qalter)
+
+            changed = self.get_job_info(jid)
+            joblist.extend(changed)
+
+        """
+        joblist: [origin, changed]
+        """
+        return joblist
+
+    def change_begin_delta(self, jid, delta):
+        """
+        録画ジョブの現在の開始時刻を基準に相対的に変更
+        変更前と変更後のジョブ情報をリストに詰めて返す
+        """
+        joblist = self.get_job_info(jid)
+        if joblist:
+            begin = joblist[0].get('rec_begin') + delta
+            qalter = self.qalter[:]
+            qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
+            self._run_command(qalter)
+
+            changed = self.get_job_info(jid)
+            joblist.extend(changed)
+
+        """
+        joblist: [origin, changed]
+        """
+        return joblist
