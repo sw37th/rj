@@ -236,10 +236,16 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         引数で与えられたIDのジョブを削除する
         FIXME: 引数をstrではなくlistに変更して複数ジョブを一括削除
+
+        削除したジョブ情報のリストを返す
         """
-        qdel = self.qdel[:]
-        qdel.append(jid)
-        self._run_command(qdel)
+        joblist = self.get_job_info(jid)
+        if joblist:
+            qdel = self.qdel[:]
+            qdel.append(jid)
+            self._run_command(qdel)
+
+        return joblist
 
     def change_begin(self, jid, begin):
         """
