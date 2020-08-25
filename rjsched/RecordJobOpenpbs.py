@@ -222,7 +222,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         qsub = self.qsub[:] + [
                 '-N', '{}.{}'.format(title, ch),
                 '-a', begin.strftime('%Y%m%d%H%M.%S'),
-                '-l', 'walltime={}'.format(str(int(rectime.total_seconds()))),
+                '-l', 'walltime={}'.format(rectime.total_seconds()),
                 '-l', '{}=1'.format(tuner),
                 '-j', 'oe',
                 '-o', self.logdir,
