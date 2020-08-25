@@ -517,6 +517,8 @@ def main():
             print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
             print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
                 '(Start time changed)')
+        else:
+            print('no such job: {}'.format(jid))
 
     elif args.get('modrectime'):
         """
@@ -545,6 +547,8 @@ def main():
             print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
             print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
                 '(Recording time changed)')
+        else:
+            print('no such job: {}'.format(jid))
 
     elif args.get('setrep') or args.get('unsetrep'):
         """
