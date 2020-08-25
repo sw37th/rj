@@ -39,7 +39,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 check=True,)
         except (TimeoutExpired, CalledProcessError) as err:
             print('{} failed: {}'.format(command[0], err))
-            sys.exit(1)
+            raise
         return proc
 
     def _get_tuner_num(self):
@@ -247,13 +247,20 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return joblist
 
-    def change_begin(self, jid, begin):
+    def change_begin(self, jid, begin=None, delta=None):
         """
         録画ジョブの開始時刻を指定時刻に変更
         変更前と変更後のジョブ情報をリストに詰めて返す
+        jid:   ジョブID (str)
+        begin: 録画開始時刻 (datetime)
+        delta: 現在の録画開始時刻との差分 (timedelta)
+
+        begin, deltaが両方指定された場合はdeltaを優先する
         """
         joblist = self.get_job_info(jid)
         if joblist:
+            if delta:
+                begin = joblist[0].get('rec_begin') + delta
             qalter = self.qalter[:]
             qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
             self._run_command(qalter)
@@ -266,16 +273,23 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         return joblist
 
-    def change_begin_delta(self, jid, delta):
+    def change_rectime(self, jid, rectime=None, delta=None):
         """
-        録画ジョブの現在の開始時刻を基準に相対的に変更
+        録画時間を指定時間に変更
         変更前と変更後のジョブ情報をリストに詰めて返す
+        jid:     ジョブID (str)
+        rectime: 録画時間 (timedelta)
+        delta:   現在の録画時間との差分 (timedelta)
+
+        rectime, deltaが両方指定された場合はdeltaを優先する
         """
         joblist = self.get_job_info(jid)
         if joblist:
-            begin = joblist[0].get('rec_begin') + delta
+            if delta:
+                rectime = joblist[0].get('walltime') + delta
             qalter = self.qalter[:]
-            qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
+            qalter.extend([
+                '-l', 'walltime={}'.format(rectime.total_seconds()), jid])
             self._run_command(qalter)
 
             changed = self.get_job_info(jid)
