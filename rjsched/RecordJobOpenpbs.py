@@ -191,9 +191,9 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                     if i['rec_begin'] >= date and i['rec_begin'] < nextday]
         else:
             # 全ジョブ
-            joblist = deepcopy(self.joblist)
+            joblist = self.joblist
 
-        return joblist
+        return deepcopy(joblist)
 
     def add(self, ch, title, begin, rectime, repeat=''):
         """
