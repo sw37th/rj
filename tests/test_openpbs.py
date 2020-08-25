@@ -115,62 +115,60 @@ class RecordJobOpenpbsTest(TestCase):
         """
         self.rec._run_command = MagicMock()
         self.rec.get_job_info = MagicMock()
-        begin = datetime(2020, 8, 16, 0, 0, 0)
         jid = '1'
 
-        # 引数のIDのジョブが存在する
-        jobinfo = {'rj_id': jid}
-        expected_joblist = [jobinfo, jobinfo]
+        begin = datetime(2020, 8, 16, 0, 0, 0)
+        delta = timedelta(seconds=300)
+        job = [{'rj_id': jid, 'rec_begin': begin}]
+
         expected_command = [
             '/work/pbs/bin/qalter', '-a', '202008160000.00', jid]
 
-        self.rec.get_job_info.return_value = [jobinfo]
+        expected_command_delta = [
+            '/work/pbs/bin/qalter', '-a', '202008160005.00', jid]
 
-        joblist = self.rec.change_begin(jid, begin)
+        expected_job_exists = [
+            {'rj_id': jid, 'rec_begin': begin},
+            {'rj_id': jid, 'rec_begin': begin}]
+        expected_job_notexists = []
+
+        """
+        引数のIDのジョブが存在する
+        """
+
+        # 開始時刻時刻指定
+        self.rec.get_job_info.return_value = deepcopy(job)
+        job_pair = self.rec.change_begin(jid, begin=begin)
+
         self.rec._run_command.assert_called_with(expected_command)
-        self.assertEqual(joblist, expected_joblist)
+        self.assertEqual(job_pair, expected_job_exists)
+
+        # 元の録画開始時間からの差分指定
+        self.rec.get_job_info.return_value = deepcopy(job)
+        job_pair = self.rec.change_begin(jid, delta=delta)
+
+        self.rec._run_command.assert_called_with(expected_command_delta)
+        self.assertEqual(job_pair, expected_job_exists)
 
         # _run_commandのMagicMockをリセット
         self.rec._run_command.reset_mock()
 
-        # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
+        """
+        引数のIDのジョブが存在しない
+        """
         self.rec.get_job_info.return_value = []
 
-        joblist = self.rec.change_begin(jid, begin)
+        # 開始時刻時刻指定
+        job_pair = self.rec.change_begin(jid, begin=begin)
+
         self.rec._run_command.assert_not_called
-        self.assertEqual(joblist, [])
+        self.assertEqual(job_pair, expected_job_notexists)
 
-    def test_change_begin_delta(self):
-        """
-        録画開始時間変更(相対時刻)の際のqalterコマンドと引数、戻り値を確認
-        """
-        self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock()
-        begin = datetime(2020, 8, 16, 0, 0, 0)
-        delta = timedelta(seconds=300)
-        jid = '1'
+        # 元の録画開始時間からの差分指定
+        job_pair = self.rec.change_begin(jid, delta=delta)
 
-        # 引数のIDのジョブが存在する
-        jobinfo = {'rj_id': jid, 'rec_begin': begin}
-        expected_joblist = [jobinfo, jobinfo]
-        expected_command = [
-            '/work/pbs/bin/qalter', '-a', '202008160005.00', jid]
-
-        self.rec.get_job_info.return_value = [jobinfo]
-
-        joblist = self.rec.change_begin_delta(jid, delta)
-        self.rec._run_command.assert_called_with(expected_command)
-        self.assertEqual(joblist, expected_joblist)
-
-        # _run_commandのMagicMockをリセット
-        self.rec._run_command.reset_mock
-
-        # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
-        self.rec.get_job_info.return_value = []
-
-        joblist = self.rec.change_begin_delta(jid, delta)
         self.rec._run_command.assert_not_called
-        self.assertEqual(joblist, [])
+        self.assertEqual(job_pair, expected_job_notexists)
 
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
