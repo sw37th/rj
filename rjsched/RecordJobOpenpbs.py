@@ -69,6 +69,8 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         for job in self.joblist:
             _type = job.get('tuner')
+            if _type == 'not_rec_job':
+                continue
             if len(stack.get(_type)) < tuners.get(_type):
                 # チューナーに空きがある
                 stack.get(_type).append(job)
@@ -119,7 +121,18 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         for k, v in jobs.items():
             # ジョブID、チャンネル番号、番組名
             job = {'rj_id': k.split('.')[0]}
-            job['rj_title'], job['channel'] = v.get('Job_Name').split('.', 1)
+            jobname = v.get('Job_Name').split('.', 1)
+            if len(jobname) < 2:
+                # ジョブ名が "番組名.チャンネル番号" 形式ではない
+                job['rj_title'] = jobname[0]
+                job['channel'] = '0'
+            else:
+                job['rj_title'] = jobname[0]
+                if jobname[1].isdigit():
+                    job['channel'] = jobname[1]
+                else:
+                    # 不正なチャンネル番号
+                    job['channel'] = '0'
 
             # 録画時間
             wt_h, wt_m, wt_s = [
@@ -128,22 +141,27 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
             # ジョブの状態、録画開始時刻、録画終了時間、録画開始からの経過時間
             state = v.get('job_state')
-            if state == "R":
-                # running
-                job['rec_begin'] = datetime.strptime(
-                    v.get('etime'), "%a %b %d %H:%M:%S %Y")
-                job['elapse'] = current - job['rec_begin']
-                job['exec_host'] = v.get('exec_host').split('/')[0]
-            else:
+            if state == "W":
                 # waiting
                 job['rec_begin'] = datetime.strptime(
                     v.get('Execution_Time'), "%a %b %d %H:%M:%S %Y")
+            else:
+                # queued or running
+                job['rec_begin'] = datetime.strptime(
+                    v.get('etime'), "%a %b %d %H:%M:%S %Y")
+                job['elapse'] = current - job['rec_begin']
+                job['exec_host'] = v.get('exec_host', 'dummy/dummy').split('/')[0]
             job['rec_end'] = job['rec_begin'] + job['walltime']
             job['record_state'] = self.job_state.get(state)
 
             # 地上波(tt) or 衛星放送(bs)
-            job['tuner'] = [k for k in v.get('Resource_List').keys()
-                if k == 'tt' or k == 'bs'][0]
+            tuner = [k for k in v.get('Resource_List').keys()
+                if k == 'tt' or k == 'bs']
+            if tuner:
+                job['tuner'] = tuner[0]
+            else:
+                # 録画ジョブ以外のジョブの場合
+                job['tuner'] = 'not_rec_job'
 
             # ジョブのオーナー、ジョブのグループ、ジョブの実行ホスト
             job['user'] = v.get('euser')
