@@ -2,12 +2,14 @@
 """Record the TV program by JOB scheduler
 
 Usage:
-  rj add [-r|--repeat <TYPE>] CH TITLE DATE TIME [RECORDINGTIME]
+  rj add [-r|--repeat <TYPE>] CH NAME DATE TIME [RECORDINGTIME]
   rj del JOBID [JOBID...]
   rj list [DATE]
   rj show JOBID
   rj modbegin JOBID (DELTATIME | DATE TIME)
   rj modrectime JOBID RECORDINGTIME
+  rj modch JOBID CH
+  rj modname JOBID NAME
   rj setrep JOBID TYPE
   rj unsetrep JOBID
   rj listch rj -h | --help
@@ -434,7 +436,7 @@ def main():
         if not rectime:
             sys.exit(1)
 
-        jid = rec.add(ch, args.get('TITLE'), begin, rectime, repeat)
+        jid = rec.add(ch, args.get('NAME'), begin, rectime, repeat)
         if jid:
             jobinfo = rec.get_job_info(jid=jid)
             print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
@@ -519,6 +521,7 @@ def main():
                 '(Start time changed)')
         else:
             print('no such job: {}'.format(jid))
+            sys.exit(1)
 
     elif args.get('modrectime'):
         """
@@ -549,6 +552,45 @@ def main():
                 '(Recording time changed)')
         else:
             print('no such job: {}'.format(jid))
+            sys.exit(1)
+
+    elif args.get('modch'):
+        """
+        登録済み録画ジョブのチャンネルを再設定する。
+        """
+        jid = args.get('JOBID')[0]
+
+        ch = args.get('CH')
+        if ch.isdigit():
+            joblist = rec.change_channel(jid, ch)
+        else:
+            print('invalid channel: {}'.format(ch))
+            sys.exit(1)
+
+        if joblist:
+            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+                '(channel changed)')
+        else:
+            print('no such job: {}'.format(jid))
+            sys.exit(1)
+
+    elif args.get('modname'):
+        """
+        登録済み録画ジョブの番組名を再設定する。
+        """
+        jid = args.get('JOBID')[0]
+
+        name = args.get('NAME')
+        joblist = rec.change_name(jid, name)
+
+        if joblist:
+            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+                '(channel changed)')
+        else:
+            print('no such job: {}'.format(jid))
+            sys.exit(1)
 
     elif args.get('setrep') or args.get('unsetrep'):
         """
