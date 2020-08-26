@@ -374,6 +374,67 @@ class RecordJobOpenpbsTest(TestCase):
         self.rec._fetch_joblist()
         self.assertEqual(self.rec.joblist, joblist_expected)
 
+        # 録画ジョブ以外のジョブが混じっている
+        qstat_with_notrecjob_out = dedent("""\
+            {
+                "Jobs":{
+                    "1.openpbs":{
+                        "Job_Name":"notrecjob.sh",
+                        "job_state":"W",
+                        "ctime":"Sun Aug 20 00:00:00 2020",
+                        "Execution_Time":"Tue Aug 20 23:59:50 2020",
+                        "mtime":"Sun Aug 20 00:00:00 2020",
+                        "qtime":"Sun Aug 20 00:00:00 2020",
+                        "Resource_List":{
+                            "walltime":"00:29:30"},
+                        "euser":"autumn",
+                        "egroup":"autumn"},
+                    "2.openpbs":{
+                        "Job_Name":"notrecjob",
+                        "job_state":"W",
+                        "ctime":"Sun Aug 20 00:00:00 2020",
+                        "Execution_Time":"Tue Aug 20 23:59:50 2020",
+                        "mtime":"Sun Aug 20 00:00:00 2020",
+                        "qtime":"Sun Aug 20 00:00:00 2020",
+                        "Resource_List":{
+                            "walltime":"00:29:30"},
+                        "euser":"autumn",
+                        "egroup":"autumn"}}}""")
+        joblist_with_notrecjob_expected = [
+            {
+                'rj_id': '1',
+                'channel': '0',
+                'rj_title': 'notrecjob',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 20, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 21, 00, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'not_rec_job',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 20, 0, 0, 0),
+                'ctime': datetime(2020, 8, 20, 0, 0, 0),
+                'mtime': datetime(2020, 8, 20, 0, 0, 0),
+                'alert': ''},
+            {
+                'rj_id': '2',
+                'channel': '0',
+                'rj_title': 'notrecjob',
+                'walltime': timedelta(0, 1770),
+                'rec_begin': datetime(2020, 8, 20, 23, 59, 50),
+                'rec_end': datetime(2020, 8, 21, 00, 29, 20),
+                'record_state': 'Waiting',
+                'tuner': 'not_rec_job',
+                'user': 'autumn',
+                'group': 'autumn',
+                'qtime': datetime(2020, 8, 20, 0, 0, 0),
+                'ctime': datetime(2020, 8, 20, 0, 0, 0),
+                'mtime': datetime(2020, 8, 20, 0, 0, 0),
+                'alert': ''}]
+        proc.stdout = qstat_with_notrecjob_out
+        self.rec._fetch_joblist()
+        self.assertEqual(self.rec.joblist, joblist_with_notrecjob_expected)
+
     def test_get_job_info(self):
         """
         get_job_info()の引数に応じたジョブ情報のリストが返ってくることを確認
