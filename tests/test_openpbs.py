@@ -25,8 +25,8 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_add(self):
         """
-        録画予約ジョブ用qsubコマンドオプションと
-        録画用recpt1コマンドオプションのチェック
+        録画予約ジョブ用qsubコマンドの引数と
+        録画用recpt1コマンドの引数を確認
         """
         proc = MagicMock()
         self.rec._run_command = MagicMock(return_value=proc)
@@ -83,7 +83,7 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_remove(self):
         """
-        ジョブ削除の際のqdelコマンドと引数、戻り値を確認
+        ジョブ削除の際のqdelコマンドの引数、戻り値を確認
         """
         self.rec._run_command = MagicMock()
         self.rec.get_job_info = MagicMock()
@@ -111,7 +111,7 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_change_begin(self):
         """
-        録画開始時間変更の際のqalterコマンドと引数、戻り値を確認
+        録画開始時間変更の際のqalterコマンドの引数、戻り値を確認
         """
         self.rec._run_command = MagicMock()
         self.rec.get_job_info = MagicMock()
@@ -171,7 +171,7 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_change_retime(self):
         """
-        録画時間変更の際のqalterコマンドと引数、戻り値を確認
+        録画時間変更の際のqalterコマンドの引数、戻り値を確認
         """
         self.rec._run_command = MagicMock()
         self.rec.get_job_info = MagicMock()
@@ -228,6 +228,41 @@ class RecordJobOpenpbsTest(TestCase):
 
         self.rec._run_command.assert_not_called
         self.assertEqual(job_pair, expected_job_notexists)
+
+    def test_change_jobname(self):
+        """
+        ジョブ名変更の際のqalterコマンドの引数、戻り値を確認
+        """
+        self.rec._run_command = MagicMock()
+        jid = '1'
+        origin_joblist = [{'rj_id': jid, 'rj_title': 'origin', 'channel': '15'}]
+
+        expected_jobpair = [
+            {'rj_id': jid, 'rj_title': 'origin', 'channel': '15'},
+            {'rj_id': jid, 'rj_title': 'origin', 'channel': '15'}]
+
+        expected_chname_command = [
+            '/work/pbs/bin/qalter', '-N', 'changed.15', jid]
+
+        expected_chch_command = [
+            '/work/pbs/bin/qalter', '-N', 'origin.211', jid]
+
+        self.rec._run_command = MagicMock()
+        self.rec.get_job_info = MagicMock(return_value=origin_joblist)
+
+        # 番組名変更
+        job_pair = self.rec._change_jobname(
+            joblist=deepcopy(origin_joblist), name='changed')
+
+        self.rec._run_command.assert_called_with(expected_chname_command)
+        self.assertEqual(job_pair, expected_jobpair)
+
+        # チャンネル番号変更
+        job_pair = self.rec._change_jobname(
+            joblist=deepcopy(origin_joblist), ch='211')
+
+        self.rec._run_command.assert_called_with(expected_chch_command)
+        self.assertEqual(job_pair, expected_jobpair)
 
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
