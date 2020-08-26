@@ -170,6 +170,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         ジョブ情報をリストに詰め、呼び出し元に返す
         下記の引数が指定されている場合はそのジョブ情報のみ抽出する
+
         jid:  ジョブID (str)
         date: ジョブの実行日 (datetime)
         """
@@ -198,13 +199,13 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def add(self, ch, title, begin, rectime, repeat=''):
         """
         ジョブをサブミットする
+        qsubコマンドの出力するジョブIDからID番号のみを切り出して返す
+
         ch:      チャンネル番号(str)
         title:   番組名(str)
         begin:   開始時間(datetime)
         rectime: 録画時間(timedelta)
         repeat:  繰り返しフラグ(str)
-
-        qsubコマンドの出力するジョブIDからID番号のみを切り出して返す
         """
 
         recpt1_args = \
@@ -247,10 +248,11 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return joblist
 
-    def change_begin(self, jid, begin=None, delta=None):
+    def change_begin(self, jid='', begin=None, delta=None):
         """
         録画ジョブの開始時刻を指定時刻に変更
         変更前と変更後のジョブ情報をリストに詰めて返す
+
         jid:   ジョブID (str)
         begin: 録画開始時刻 (datetime)
         delta: 現在の録画開始時刻との差分 (timedelta)
@@ -273,10 +275,11 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         return joblist
 
-    def change_rectime(self, jid, rectime=None, delta=None):
+    def change_rectime(self, jid='', rectime=None, delta=None):
         """
         録画時間を指定時間に変更
         変更前と変更後のジョブ情報をリストに詰めて返す
+
         jid:     ジョブID (str)
         rectime: 録画時間 (timedelta)
         delta:   現在の録画時間との差分 (timedelta)
@@ -298,4 +301,62 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         """
         joblist: [origin, changed]
         """
+        return joblist
+
+    def _change_jobname(self, joblist, name='', ch=''):
+        """
+        "番組名"."チャンネル番号" で構成されるジョブ名を変更する
+        変更前と変更後のジョブ情報をリストに詰めて返す
+
+        joblist:  ジョブリスト (list)
+        name:     変更後の番組名 (str)
+        ch:       変更後のチャンネル番号 (str)
+        """
+        jid = joblist[0].get('rj_id')
+        if not name:
+            name = joblist[0].get('rj_title')
+        if not ch:
+            ch = joblist[0].get('channel')
+
+        qalter = self.qalter[:]
+        qalter.extend([
+            '-N', '{}.{}'.format(name, ch), jid])
+        self._run_command(qalter)
+
+        changed = self.get_job_info(jid)
+        joblist.extend(changed)
+
+        """
+        joblist: [origin, changed]
+        """
+        return deepcopy(joblist)
+
+    def change_channel(self, jid='', ch=''):
+        """
+        録画するチャンネルを変更する
+
+        jid:  ジョブID (str)
+        ch:   変更後のチャンネル番号 (str)
+        FIXME: 録画中のチャンネルの変更
+
+        """
+        joblist = self.get_job_info(jid)
+        if joblist:
+            joblist = self._change_jobname(joblist=joblist, ch=ch)
+
+        return joblist
+
+    def change_name(self, jid='', name=''):
+        """
+        番組名を変更する
+
+        jid:  ジョブID (str)
+        name:   変更後の番組名 (str)
+
+        FIXME: 録画中の番組名の変更
+        """
+        joblist = self.get_job_info(jid)
+        if joblist:
+            joblist = self._change_jobname(joblist=joblist, name=name)
+
         return joblist
