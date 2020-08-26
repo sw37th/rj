@@ -724,3 +724,59 @@ class RecordJobOpenpbsTest(TestCase):
 
         alerts = [i.get('alert') for i in self.rec.joblist]
         self.assertEqual(alerts, expected_boundary_exceeded)
+
+        # 録画ジョブ以外が混じっている
+        joblist_with_notrecjob = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'not_rec_job',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 30, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''}]
+        expected_with_notrecjob = ['', '', '']
+
+        self.rec.joblist = joblist_with_notrecjob
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_with_notrecjob)
+
+        # 録画ジョブ以外が混じっている
+        # 且つ録画ジョブがチューナー数を超過している
+        joblist_with_notrecjob_exceeded = [
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'not_rec_job',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 00, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''},
+            {
+                'rec_begin': datetime(2020, 8, 16, 22, 30, 00),
+                'rec_end':   datetime(2020, 8, 16, 22, 30, 00),
+                'tuner': 'tt',
+                'alert': ''}]
+        expected_with_notrecjob_exceeded = ['', message, message, message]
+
+        self.rec.joblist = joblist_with_notrecjob_exceeded
+        self.rec._check_tuner_resource()
+
+        alerts = [i.get('alert') for i in self.rec.joblist]
+        self.assertEqual(alerts, expected_with_notrecjob_exceeded)
