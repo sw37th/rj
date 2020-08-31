@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from datetime import datetime, timedelta
 import re
 import sys
@@ -47,9 +46,9 @@ def parse_time(timestr):
     re_time = re.compile(r'^\d+:\d+:\d+$|^\d+:\d+$|^\d+$')
     time_ = None
 
-    if re.match(re_time, s_time):
+    if re_time.match(timestr):
         # 'HH:MM:SS' or 'HH:MM' or 秒数
-        t = [int(i) for i in s_time.split(':')]
+        t = [int(i) for i in timestr.split(':')]
         if len(t) == 3:
             time_ = timedelta(seconds=(t[0] * 3600) + (t[1] * 60) + t[2])
         elif len(t) == 2:
@@ -70,7 +69,7 @@ def parse_time_delta(timestr_delta):
     re_delta = re.compile(r'^([\w:]+)([+-]*)$')
 
     m = re_delta.match(timestr_delta)
-    if m
+    if m:
         timestr, sign = m.group(1, 2)
 
     time_ = parse_time(timestr)
