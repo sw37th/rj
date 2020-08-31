@@ -118,3 +118,104 @@ class CliUtilTest(TestCase):
         timestr = 'hoge'
         result = cliutil.parse_time(timestr)
         self.assertIsNone(result)
+
+        timestr = '01:01:01:01'
+        result = cliutil.parse_time(timestr)
+        self.assertIsNone(result)
+
+    def test_parse_time_delta(self):
+        """
+        HH:MM:SS[+-]
+        """
+        timestr = '01:00:00+'
+        expect = timedelta(hours=1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '01:00:00-'
+        expect = timedelta(hours=-1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:01:00+'
+        expect = timedelta(minutes=1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:01:00-'
+        expect = timedelta(minutes=-1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:00:01+'
+        expect = timedelta(seconds=1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:00:01-'
+        expect = timedelta(seconds=-1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        """
+        HH:MM[+-]
+        """
+        timestr = '01:00+'
+        expect = timedelta(hours=1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '01:00-'
+        expect = timedelta(hours=-1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:01+'
+        expect = timedelta(minutes=1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '00:01-'
+        expect = timedelta(minutes=-1)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        """
+        seconds[+-]
+        """
+        timestr = '1770+'
+        expect = timedelta(minutes=29, seconds=30)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        timestr = '1770-'
+        expect = timedelta(minutes=-29, seconds=-30)
+        result = cliutil.parse_time_delta(timestr)
+        self.assertEqual(result, expect)
+
+        """
+        invalid strings
+        """
+        timestr = '01:01:01'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
+
+        timestr = '01:01:01*'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
+
+        timestr = '01:01'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
+
+        timestr = '1770'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
+
+        timestr = '01:01:01:01+'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
+
+        timestr = '01:01:01:01-'
+        result = cliutil.parse_time_delta(timestr)
+        self.assertIsNone(result)
