@@ -8,8 +8,8 @@ def is_future(begin):
 
     beginが現在時刻より未来の場合にTrueを返す
     """
-    current = datetime.now()
-    if begin > current:
+    now = datetime.now()
+    if begin > now:
         return True
     else:
         return False
@@ -22,7 +22,7 @@ def parse_start_time(datestr, timestr, wormup_sec=30):
         'today' or
         '+Nd'
     timestr: (str)
-        'HH:MM:SS' or 'HH:MM' or '秒数'
+        'HH:MM:SS' or 'HH:MM' or 'seconds'
     wormup_sec: (int)
         録画開始までのマージン
         ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため
@@ -34,12 +34,64 @@ def parse_start_time(datestr, timestr, wormup_sec=30):
     begin = date_ + time_ - wormup_sec
     return begin
 
+def parse_date(datestr):
+    """
+    datestr: (str)
+        '[YYYY/]MM/DD or
+        'sun|mon|tue|wed|thu|fri|sat' or
+        'today' or
+        '+n'
+
+    datetimeオブジェクトに変換して返す
+    """
+    date = None
+    re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
+    re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
+    re_today = re.compile(r'^today$', re.I)
+    re_increase = re.compile(r'^\+(\d+)$')
+    now = datetime.now()
+
+    if re_date.match(datestr):
+        try:
+            d = [int(i) for i in datestr.split('/')]
+            if len(d) == 3:
+                year, month, day = d
+            elif len(d) == 2:
+                month, day = d
+                if month == 1 and now.month == 12:
+                    # 年またぎ予約対応
+                    year = now.year + 1
+                else:
+                    year = now.year
+            date = datetime(year, month, day)
+        except ValueError:
+            pass
+
+    elif re_wday.match(datestr):
+        wdaynum = {
+            'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+            'fri': 4, 'sat': 5, 'sun': 6}
+        offset = wdaynum.get(datestr.lower()) - now.weekday()
+        if offset < 0:
+            # next week
+            offset += 7
+        date = datetime(now.year, now.month, now.day) + timedelta(days=offset)
+
+    elif re_today.match(datestr):
+        date = datetime(now.year, now.month, now.day)
+
+    elif re_increase.match(datestr):
+        increase = int(re_increase.match(datestr).group(1))
+        date = datetime(now.year, now.month, now.day) + timedelta(days=increase)
+
+    return date
+
 def parse_time(timestr):
     """
     timestr: (str)
         'HH:MM:SS' or
         'HH:MM' or
-        '秒数'
+        'seconds'
 
     timedeltaオブジェクトに変換して返す
     """
@@ -61,23 +113,21 @@ def parse_time(timestr):
 def parse_time_delta(timestr_delta):
     """
     timestr: (str)
-        'HH:MM:SS' or
-        'HH:MM:SS+' or
-        'HH:MM:SS-'
-    timedeltaオブジェクトとして返す
+        'HH:MM:SS[+-]' or
+        'HH:MM[+-]' or
+        'seconds[+-]
+
+    timedeltaオブジェクトに変換して返す
     """
-    re_delta = re.compile(r'^([\w:]+)([+-]*)$')
+    re_delta = re.compile(r'^([\w:]+)([+-])$')
+    time_ = None
 
     m = re_delta.match(timestr_delta)
     if m:
         timestr, sign = m.group(1, 2)
+        time_ = parse_time(timestr)
 
-    time_ = parse_time(timestr)
-    if time_:
-        if sign == '-':
-            return -time_
-        else:
-            return time_
-    else:
-        return None
+    if time_ and sign == '-':
+        time_ *= -1
 
+    return time_
