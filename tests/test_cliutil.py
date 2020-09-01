@@ -45,6 +45,126 @@ class CliUtilTest(TestCase):
         """
         return True
 
+    def test_parse_date(self):
+        """
+        'YYYY/MM/DD'
+        """
+        datestr1 = '2020/09/01'
+        expect1 = datetime(year=2020, month=9, day=1)
+        result1 = cliutil.parse_date(datestr1)
+        self.assertEqual(result1, expect1)
+
+        """
+        'MM/DD'
+        """
+        datestr2 = '09/01'
+        expect2 = datetime(year=2020, month=9, day=1)
+        result2 = cliutil.parse_date(datestr2)
+        self.assertEqual(result2, expect2)
+
+        with freeze_time("2020-12-01"):
+            """
+            年またぎ録画予約
+            """
+            datestr3 = '01/01'
+            expect3 = datetime(year=2021, month=1, day=1)
+            result3 = cliutil.parse_date(datestr3)
+            self.assertEqual(result3, expect3)
+
+        """
+        'sun|mon|tue|wed|thu|fri|sat'
+        """
+        with freeze_time("2020-09-01"):
+            """
+            日付を2020/09/01 火曜日に固定
+            """
+            datestr4 = 'tue'
+            expect4 = datetime(year=2020, month=9, day=1)
+            result4 = cliutil.parse_date(datestr4)
+            self.assertEqual(result4, expect4)
+
+            datestr6 = 'WED'
+            expect6 = datetime(year=2020, month=9, day=2)
+            result6 = cliutil.parse_date(datestr6)
+            self.assertEqual(result6, expect6)
+
+            datestr7 = 'tHU'
+            expect7 = datetime(year=2020, month=9, day=3)
+            result7 = cliutil.parse_date(datestr7)
+            self.assertEqual(result7, expect7)
+
+            datestr8 = 'frI'
+            expect8 = datetime(year=2020, month=9, day=4)
+            result8 = cliutil.parse_date(datestr8)
+            self.assertEqual(result8, expect8)
+
+            datestr9 = 'sAt'
+            expect9 = datetime(year=2020, month=9, day=5)
+            result9 = cliutil.parse_date(datestr9)
+            self.assertEqual(result9, expect9)
+
+            datestr10 = 'SUn'
+            expect10 = datetime(year=2020, month=9, day=6)
+            result10 = cliutil.parse_date(datestr10)
+            self.assertEqual(result10, expect10)
+
+            datestr11 = 'Mon'
+            expect11 = datetime(year=2020, month=9, day=7)
+            result11 = cliutil.parse_date(datestr11)
+            self.assertEqual(result11, expect11)
+
+        """
+        'today'
+        """
+        with freeze_time("2020-09-01"):
+            """
+            日付を2020/09/01 火曜日に固定
+            """
+            datestr12 = 'today'
+            expect12 = datetime(year=2020, month=9, day=1)
+            result12 = cliutil.parse_date(datestr12)
+            self.assertEqual(result12, expect12)
+
+            datestr13 = 'TODAY'
+            expect13 = datetime(year=2020, month=9, day=1)
+            result13 = cliutil.parse_date(datestr13)
+            self.assertEqual(result13, expect13)
+
+        """
+        '+n'
+        """
+        with freeze_time("2020-09-01"):
+            """
+            日付を2020/09/01 火曜日に固定
+            """
+            datestr14 = '+7'
+            expect14 = datetime(year=2020, month=9, day=8)
+            result14 = cliutil.parse_date(datestr14)
+            self.assertEqual(result14, expect14)
+
+        """
+        invalid value
+        """
+        datestr15 = ''
+        result15 = cliutil.parse_date(datestr15)
+        self.assertIsNone(result15)
+
+        datestr16 = '1'
+        result16 = cliutil.parse_date(datestr16)
+        self.assertIsNone(result16)
+
+        datestr17 = '2020/2020/2020'
+        result17 = cliutil.parse_date(datestr17)
+        self.assertIsNone(result17)
+
+        datestr18 = '2020/09/01/02'
+        result18 = cliutil.parse_date(datestr18)
+        self.assertIsNone(result18)
+
+        datestr19 = '2020/20/40'
+        result19 = cliutil.parse_date(datestr19)
+        self.assertIsNone(result19)
+
     def test_parse_time(self):
         """
         HH:MM:SS
