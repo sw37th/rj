@@ -85,7 +85,7 @@ def parse_yyyymmdd(datestr):
 
     return date_
 
-def parse_weekday(datestr, day_change_hour):
+def parse_weekday(datestr, day_change_hour=0):
     """
     datestr: (str)
         'sun|mon|tue|wed|thu|fri|sat' or
@@ -105,7 +105,7 @@ def parse_weekday(datestr, day_change_hour):
     if offset < 0:
         # next week
         offset += 7
-    if offset == 6 and now.hour < day_change_hour):
+    if offset == 6 and now.hour < day_change_hour:
         # 午前0時以降day_change_hour時未満に前曜日が指定された
         offset = -1
 
