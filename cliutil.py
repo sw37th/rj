@@ -14,7 +14,7 @@ def is_future(begin):
     else:
         return False
 
-def parse_start_time(datestr, timestr, wormup_sec=30):
+def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
     """
     datestr: (str)
         'YYYY/MM/DD|MM/DD|DD' or
@@ -25,16 +25,37 @@ def parse_start_time(datestr, timestr, wormup_sec=30):
         'HH:MM:SS' or 'HH:MM' or 'seconds'
     wormup_sec: (int)
         録画開始までのマージン
-        ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため
-        指定時刻よりwormup_sec秒だけ早くジョブを開始する。
-    """
-    date_ = parse_date(datestr)
-    time_ = parse_time(timestr)
+        ジョブがスタートしてから実際に録画開始されるまでのタイムラグを考慮し
+        指定時刻よりwormup_sec秒だけジョブ開始時刻を早める。
+    day_change_hour: (int)
 
-    begin = date_ + time_ - wormup_sec
+    """
+    begin = None
+    re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
+    re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
+    re_today = re.compile(r'^today$', re.I)
+    re_increase = re.compile(r'^\+(\d+)$')
+
+    if re_date.match(datestr):
+        date_ = parse_yyyymmdd(datestr)
+    elif re_wday.match(datestr):
+        date_ = parse_weekday(datestr, day_change_hour)
+    elif re_today.match(datestr):
+        date_ = parse_today(day_change_hour)
+    elif re_increase.match(datestr):
+        increase = int(re_increase.match(datestr).group(1))
+        date_ = parse_increase(increase)
+    else:
+        date_ = None
+
+    if date_:
+        time_ = parse_time(timestr)
+    if time_:
+        begin = date_ + time_ - wormup_sec
+
     return begin
 
-def parse_date(datestr):
+def parse_yyyymmdd(datestr):
     """
     datestr: (str)
         '[YYYY/]MM/DD or
@@ -44,47 +65,74 @@ def parse_date(datestr):
 
     datetimeオブジェクトに変換して返す
     """
-    date = None
-    re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
-    re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
-    re_today = re.compile(r'^today$', re.I)
-    re_increase = re.compile(r'^\+(\d+)$')
+    date_ = None
     now = datetime.now()
 
-    if re_date.match(datestr):
-        try:
-            d = [int(i) for i in datestr.split('/')]
-            if len(d) == 3:
-                year, month, day = d
-            elif len(d) == 2:
-                month, day = d
-                if month == 1 and now.month == 12:
-                    # 年またぎ予約対応
-                    year = now.year + 1
-                else:
-                    year = now.year
-            date = datetime(year, month, day)
-        except ValueError:
-            pass
+    try:
+        d = [int(i) for i in datestr.split('/')]
+        if len(d) == 3:
+            year, month, day = d
+        elif len(d) == 2:
+            month, day = d
+            if month == 1 and now.month == 12:
+                # 年またぎ予約対応
+                year = now.year + 1
+            else:
+                year = now.year
+        date_ = datetime(year, month, day)
+    except ValueError:
+        pass
 
-    elif re_wday.match(datestr):
-        wdaynum = {
-            'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
-            'fri': 4, 'sat': 5, 'sun': 6}
-        offset = wdaynum.get(datestr.lower()) - now.weekday()
-        if offset < 0:
-            # next week
-            offset += 7
-        date = datetime(now.year, now.month, now.day) + timedelta(days=offset)
+    return date_
 
-    elif re_today.match(datestr):
-        date = datetime(now.year, now.month, now.day)
+def parse_weekday(datestr, day_change_hour):
+    """
+    datestr: (str)
+        'sun|mon|tue|wed|thu|fri|sat' or
+    day_change_hour: (int)
 
-    elif re_increase.match(datestr):
-        increase = int(re_increase.match(datestr).group(1))
-        date = datetime(now.year, now.month, now.day) + timedelta(days=increase)
+    実行時の日付けを基準に、指定曜日までの日数を加算した
+    datetimeオブジェクトを返す
 
-    return date
+    午前0時以降day_change_hour時未満に前曜日が指定された場合は
+    まだ日付が変わっていないと見なす
+    """
+    now = datetime.now()
+    wdaynum = {
+        'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+        'fri': 4, 'sat': 5, 'sun': 6}
+    offset = wdaynum.get(datestr.lower()) - now.weekday()
+    if offset < 0:
+        # next week
+        offset += 7
+    if offset == 6 and now.hour < day_change_hour):
+        # 午前0時以降day_change_hour時未満に前曜日が指定された
+        offset = -1
+
+    return datetime(now.year, now.month, now.day) + timedelta(days=offset)
+
+def parse_today(day_change_hour):
+    """
+    day_change_hour: (int)
+
+    本日の日付けのdatetimeオブジェクトを返す
+    実行時刻がday_change_hour時刻未満の場合はまだ前日扱い
+    """
+    now = datetime.now()
+    if now.hour < day_change_hour:
+        # 前日の日付け扱い
+        date_ = datetime(now.year, now.month, now.day) - timedelta(days=1)
+    else:
+        date_ = datetime(now.year, now.month, now.day)
+    return date_
+
+def parse_increase(increase):
+    """
+    increase: '\d' (str)
+    今日の日付にincrease分の日数を加算したdatetimeオブジェクトを返す
+    """
+    now = datetime.now()
+    return datetime(now.year, now.month, now.day) + timedelta(days=int(increase))
 
 def parse_time(timestr):
     """
