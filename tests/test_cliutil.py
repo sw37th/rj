@@ -122,7 +122,7 @@ class CliUtilTest(TestCase):
             self.assertEqual(result7, expect7)
 
         """
-        day_change_hour
+        day_change_hour=2
         """
         with freeze_time("2020-09-01 00:00:00"):    # 8/31 Mon 24:00
             datestr8 = 'Mon'
@@ -172,15 +172,18 @@ class CliUtilTest(TestCase):
             result15 = cliutil.parse_weekday(datestr15, day_change_hour=2)
             self.assertEqual(result15, expect15)
 
-        with freeze_time("2020-09-01 01:00:00"):    # 8/31 Mon 25:00
+        with freeze_time("2020-09-01 01:59:59"):    # 8/31 Mon 25:59:59
+            """
+            現在時刻がday_change_hour=2未満なので前曜日扱い
+            """
             datestr16 = 'Mon'
             expect16 = datetime(year=2020, month=8, day=31)
             result16 = cliutil.parse_weekday(datestr16, day_change_hour=2)
             self.assertEqual(result16, expect16)
 
-        with freeze_time("2020-09-01 02:00:00"):    # 9/1 Tue 02:00
+        with freeze_time("2020-09-01 02:00:00"):    # 9/1 Tue 02:00:00
             """
-            現在時刻がday_change_hour=2を過ぎたので翌週月曜日扱い
+            現在時刻がday_change_hour=2を過ぎたので翌週曜日扱い
             """
             datestr17 = 'Mon'
             expect17 = datetime(year=2020, month=9, day=7)
@@ -191,17 +194,52 @@ class CliUtilTest(TestCase):
         """
         'today'
         """
-        with freeze_time("2020-09-01"):
+        with freeze_time("2020-09-01 00:00:00"):
             """
-            日付を2020/09/01 火曜日に固定
+            日付を2020/09/01 00:00:00 火曜日に固定
             """
-            expect12 = datetime(year=2020, month=9, day=1)
-            result12 = cliutil.parse_today(day_change_hour=0)
-            self.assertEqual(result12, expect12)
+            expect1 = datetime(year=2020, month=9, day=1)
+            result1 = cliutil.parse_today(day_change_hour=0)
+            self.assertEqual(result1, expect1)
 
-            expect13 = datetime(year=2020, month=9, day=1)
-            result13 = cliutil.parse_today(day_change_hour=0)
-            self.assertEqual(result13, expect13)
+            expect2 = datetime(year=2020, month=9, day=1)
+            result2 = cliutil.parse_today(day_change_hour=0)
+            self.assertEqual(result2, expect2)
+
+        """
+        day_change_hour=2
+        """
+        with freeze_time("2020-09-01 00:00:00"):
+            """
+            日付を2020/09/01 00:00:00 火曜日に固定
+            """
+            expect3 = datetime(year=2020, month=8, day=31)
+            result3 = cliutil.parse_today(day_change_hour=2)
+            self.assertEqual(result3, expect3)
+
+        with freeze_time("2020-09-01 01:00:00"):
+            """
+            日付を2020/09/01 01:00:00 火曜日に固定
+            """
+            expect4 = datetime(year=2020, month=8, day=31)
+            result4 = cliutil.parse_today(day_change_hour=2)
+            self.assertEqual(result4, expect4)
+
+        with freeze_time("2020-09-01 01:59:59"):
+            """
+            日付を2020/09/01 01:59:59 火曜日に固定
+            """
+            expect5 = datetime(year=2020, month=8, day=31)
+            result5 = cliutil.parse_today(day_change_hour=2)
+            self.assertEqual(result5, expect5)
+
+        with freeze_time("2020-09-01 02:00:00"):
+            """
+            日付を2020/09/01 02:00:00 火曜日に固定
+            """
+            expect6 = datetime(year=2020, month=9, day=1)
+            result6 = cliutil.parse_today(day_change_hour=2)
+            self.assertEqual(result6, expect6)
 
     def test_parse_increase(self):
         """
