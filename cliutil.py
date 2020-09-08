@@ -133,6 +133,10 @@ def _days_from_today(days, day_change_hour=0):
     now < day_change_hour の場合はまだ日付が変わっていないと見なす
     """
     now = datetime.now()
+    if now.hour < day_change_hour:
+        # 前日から起算
+        days -= 1
+
     return datetime(now.year, now.month, now.day) + timedelta(days=days)
 
 def parse_time(timestr):
