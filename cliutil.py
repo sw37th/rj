@@ -20,15 +20,19 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
         'YYYY/MM/DD|MM/DD|DD' or
         'sun|mon|tue|wed|thu|fri|sat' or
         'today' or
-        '+Nd'
+        '+N'
     timestr: (str)
-        'HH:MM:SS' or 'HH:MM' or 'seconds'
+        'HH:MM:SS' or
+        'HH:MM' or
+        'seconds'
     wormup_sec: (int)
         録画開始までのマージン
         ジョブがスタートしてから実際に録画開始されるまでのタイムラグを考慮し
         指定時刻よりwormup_sec秒だけジョブ開始時刻を早める。
     day_change_hour: (int)
-
+        日付が変わったと見なす時刻
+        day_change_hour=0の場合、00:00:00 - 23:59:59 を1日と判定する
+        day_change_hour=5の場合、05:00:00 - 28:59:59 を1日と判定する
     """
     begin = None
     re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
@@ -37,15 +41,20 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
     re_increase = re.compile(r'^\+(\d+)$')
 
     if re_date.match(datestr):
+        # datestr: 'YYYY/MM/DD|MM/DD|DD'
         date_ = _yyyymmdd(datestr)
     elif re_wday.match(datestr):
+        # datestr: 'sun|mon|tue|wed|thu|fri|sat'
         date_ = _weekday(datestr, day_change_hour)
     elif re_today.match(datestr):
+        # datestr: 'today'
         date_ = _today(day_change_hour)
     elif re_increase.match(datestr):
+        # datestr: '+N'
         days = int(re_increase.match(datestr).group(1))
         date_ = _days_from_today(days, day_change_hour)
     else:
+        # Invalid value
         date_ = None
 
     time_ = parse_time(timestr)
@@ -57,11 +66,7 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
 
 def _yyyymmdd(datestr):
     """
-    datestr: (str)
-        '[YYYY/]MM/DD or
-        'sun|mon|tue|wed|thu|fri|sat' or
-        'today' or
-        '+n'
+    datestr: '[YYYY/]MM/DD' (str)
 
     datetimeオブジェクトに変換して返す
     """
@@ -87,8 +92,7 @@ def _yyyymmdd(datestr):
 
 def _weekday(datestr, day_change_hour=0):
     """
-    datestr: (str)
-        'sun|mon|tue|wed|thu|fri|sat' or
+    datestr: 'sun|mon|tue|wed|thu|fri|sat' (str)
     day_change_hour: (int)
 
     実行時の日付けを基準に、指定曜日までの日数を加算した
@@ -128,7 +132,9 @@ def _today(day_change_hour=0):
 
 def _days_from_today(days, day_change_hour=0):
     """
-    days: nowからの日数(int)
+    days: nowからの日数 (int)
+    day_change_hour: (int)
+
     nowにdays分の日数を加算したdatetimeオブジェクトを返す
     now < day_change_hour の場合はまだ日付が変わっていないと見なす
     """
@@ -141,10 +147,7 @@ def _days_from_today(days, day_change_hour=0):
 
 def parse_time(timestr):
     """
-    timestr: (str)
-        'HH:MM:SS' or
-        'HH:MM' or
-        'seconds'
+    timestr: 'HH:MM:SS' or 'HH:MM' or 'seconds' (str)
 
     timedeltaオブジェクトに変換して返す
     """
@@ -165,10 +168,7 @@ def parse_time(timestr):
 
 def parse_time_delta(timestr_delta):
     """
-    timestr: (str)
-        'HH:MM:SS[+-]' or
-        'HH:MM[+-]' or
-        'seconds[+-]
+    timestr: 'HH:MM:SS[+-]' or 'HH:MM[+-]' or 'seconds[+-] (str)
 
     timedeltaオブジェクトに変換して返す
     """
