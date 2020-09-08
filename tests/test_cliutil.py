@@ -84,7 +84,7 @@ class CliUtilTest(TestCase):
         """
         with freeze_time("2020-09-01 00:00:00"):
             """
-            日付を2020/09/01 00:00:00 火曜日に固定
+            現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
             datestr1 = 'tue'
             expect1 = datetime(year=2020, month=9, day=1)
@@ -196,14 +196,14 @@ class CliUtilTest(TestCase):
         """
         with freeze_time("2020-09-01 00:00:00"):
             """
-            日付を2020/09/01 00:00:00 火曜日に固定
+            現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
             expect1 = datetime(year=2020, month=9, day=1)
-            result1 = cliutil._today(day_change_hour=0)
+            result1 = cliutil._today()
             self.assertEqual(result1, expect1)
 
             expect2 = datetime(year=2020, month=9, day=1)
-            result2 = cliutil._today(day_change_hour=0)
+            result2 = cliutil._today()
             self.assertEqual(result2, expect2)
 
         """
@@ -211,7 +211,7 @@ class CliUtilTest(TestCase):
         """
         with freeze_time("2020-09-01 00:00:00"):
             """
-            日付を2020/09/01 00:00:00 火曜日に固定
+            現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
             expect3 = datetime(year=2020, month=8, day=31)
             result3 = cliutil._today(day_change_hour=2)
@@ -219,7 +219,7 @@ class CliUtilTest(TestCase):
 
         with freeze_time("2020-09-01 01:00:00"):
             """
-            日付を2020/09/01 01:00:00 火曜日に固定
+            現在時刻を2020/09/01 01:00:00 火曜日に固定
             """
             expect4 = datetime(year=2020, month=8, day=31)
             result4 = cliutil._today(day_change_hour=2)
@@ -227,7 +227,7 @@ class CliUtilTest(TestCase):
 
         with freeze_time("2020-09-01 01:59:59"):
             """
-            日付を2020/09/01 01:59:59 火曜日に固定
+            現在時刻を2020/09/01 01:59:59 火曜日に固定
             """
             expect5 = datetime(year=2020, month=8, day=31)
             result5 = cliutil._today(day_change_hour=2)
@@ -235,7 +235,7 @@ class CliUtilTest(TestCase):
 
         with freeze_time("2020-09-01 02:00:00"):
             """
-            日付を2020/09/01 02:00:00 火曜日に固定
+            現在時刻を2020/09/01 02:00:00 火曜日に固定
             """
             expect6 = datetime(year=2020, month=9, day=1)
             result6 = cliutil._today(day_change_hour=2)
@@ -245,14 +245,38 @@ class CliUtilTest(TestCase):
         """
         '+n'
         """
-        with freeze_time("2020-09-01"):
+        with freeze_time("2020-09-01 00:00:00"):
             """
-            日付を2020/09/01 火曜日に固定
+            現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
             days = 7
+
             expect1 = datetime(year=2020, month=9, day=8)
             result1 = cliutil._days_from_today(days)
             self.assertEqual(result1, expect1)
+
+            """
+            day_change_hour=2
+            """
+            expect2 = datetime(year=2020, month=9, day=7)
+            result2 = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result1, expect1)
+
+        with freeze_time("2020-09-01 01:59:59"):
+            """
+            現在時刻を2020/09/01 01:59:59 火曜日に固定
+            """
+            expect3 = datetime(year=2020, month=9, day=7)
+            result3 = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result3, expect3)
+
+        with freeze_time("2020-09-01 02:00:00"):
+            """
+            現在時刻を2020/09/01 02:00:00 火曜日に固定
+            """
+            expect4 = datetime(year=2020, month=9, day=8)
+            result4 = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result4, expect4)
 
         """
         invalid value
