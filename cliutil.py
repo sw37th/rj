@@ -37,25 +37,25 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
     re_increase = re.compile(r'^\+(\d+)$')
 
     if re_date.match(datestr):
-        date_ = parse_yyyymmdd(datestr)
+        date_ = _yyyymmdd(datestr)
     elif re_wday.match(datestr):
-        date_ = parse_weekday(datestr, day_change_hour)
+        date_ = _weekday(datestr, day_change_hour)
     elif re_today.match(datestr):
-        date_ = parse_today(day_change_hour)
+        date_ = _today(day_change_hour)
     elif re_increase.match(datestr):
-        increase = int(re_increase.match(datestr).group(1))
-        date_ = parse_increase(increase)
+        days = int(re_increase.match(datestr).group(1))
+        date_ = _days_from_today(days, day_change_hour)
     else:
         date_ = None
 
-    if date_:
-        time_ = parse_time(timestr)
-    if time_:
+    time_ = parse_time(timestr)
+
+    if date_ and time_:
         begin = date_ + time_ - wormup_sec
 
     return begin
 
-def parse_yyyymmdd(datestr):
+def _yyyymmdd(datestr):
     """
     datestr: (str)
         '[YYYY/]MM/DD or
@@ -85,7 +85,7 @@ def parse_yyyymmdd(datestr):
 
     return date_
 
-def parse_weekday(datestr, day_change_hour=0):
+def _weekday(datestr, day_change_hour=0):
     """
     datestr: (str)
         'sun|mon|tue|wed|thu|fri|sat' or
@@ -94,7 +94,7 @@ def parse_weekday(datestr, day_change_hour=0):
     実行時の日付けを基準に、指定曜日までの日数を加算した
     datetimeオブジェクトを返す
 
-    午前0時以降day_change_hour時未満に前曜日が指定された場合は
+    datestrが前曜日で、午前0時 < now < day_change_hour の場合は
     まだ日付が変わっていないと見なす
     """
     now = datetime.now()
@@ -111,12 +111,12 @@ def parse_weekday(datestr, day_change_hour=0):
 
     return datetime(now.year, now.month, now.day) + timedelta(days=offset)
 
-def parse_today(day_change_hour):
+def _today(day_change_hour=0):
     """
     day_change_hour: (int)
 
     本日の日付けのdatetimeオブジェクトを返す
-    実行時刻がday_change_hour時刻未満の場合はまだ前日扱い
+    now < day_change_hour の場合はまだ日付が変わっていないと見なす
     """
     now = datetime.now()
     if now.hour < day_change_hour:
@@ -126,13 +126,14 @@ def parse_today(day_change_hour):
         date_ = datetime(now.year, now.month, now.day)
     return date_
 
-def parse_increase(increase):
+def _days_from_today(days, day_change_hour=0):
     """
-    increase: '\d' (str)
-    今日の日付にincrease分の日数を加算したdatetimeオブジェクトを返す
+    days: nowからの日数(int)
+    nowにdays分の日数を加算したdatetimeオブジェクトを返す
+    now < day_change_hour の場合はまだ日付が変わっていないと見なす
     """
     now = datetime.now()
-    return datetime(now.year, now.month, now.day) + timedelta(days=int(increase))
+    return datetime(now.year, now.month, now.day) + timedelta(days=days)
 
 def parse_time(timestr):
     """
