@@ -35,34 +35,49 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
         day_change_hour=5の場合、05:00:00 - 28:59:59 を1日と判定する
     """
     begin = None
-    re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
-    re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
-    re_today = re.compile(r'^today$', re.I)
-    re_increase = re.compile(r'^\+(\d+)$')
+    date_ = parse_date(datestr, day_change_hour)
+    time_ = parse_time(timestr)
 
-    if re_date.match(datestr):
+    if date_ and time_:
+        begin = date_ + time_ - timedelta(seconds=wormup_sec)
+
+    return begin
+
+def parse_date(datestr, day_change_hour=0):
+    """
+    datestr: (str)
+        'YYYY/MM/DD|MM/DD|DD' or
+        'sun|mon|tue|wed|thu|fri|sat' or
+        'today' or
+        '+N'
+    day_change_hour: (int)
+        日付が変わったと見なす時刻
+        day_change_hour=0の場合、00:00:00 - 23:59:59 を1日と判定する
+        day_change_hour=5の場合、05:00:00 - 28:59:59 を1日と判定する
+
+    'datestr'の種類に応じた変換用関数を呼び、datetimeオブジェクトを返す
+    """
+    date_ = None
+    re_yyyymmdd = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$')
+    re_weekday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
+    re_today = re.compile(r'^today$', re.I)
+    re_days_from_today = re.compile(r'^\+(\d+)$')
+
+    if re_yyyymmdd.match(datestr):
         # datestr: 'YYYY/MM/DD|MM/DD|DD'
         date_ = _yyyymmdd(datestr)
-    elif re_wday.match(datestr):
+    elif re_weekday.match(datestr):
         # datestr: 'sun|mon|tue|wed|thu|fri|sat'
         date_ = _weekday(datestr, day_change_hour)
     elif re_today.match(datestr):
         # datestr: 'today'
         date_ = _today(day_change_hour)
-    elif re_increase.match(datestr):
+    elif re_days_from_today.match(datestr):
         # datestr: '+N'
-        days = int(re_increase.match(datestr).group(1))
+        days = int(re_days_from_today.match(datestr).group(1))
         date_ = _days_from_today(days, day_change_hour)
-    else:
-        # Invalid value
-        date_ = None
 
-    time_ = parse_time(timestr)
-
-    if date_ and time_:
-        begin = date_ + time_ - wormup_sec
-
-    return begin
+    return date_
 
 def _yyyymmdd(datestr):
     """
