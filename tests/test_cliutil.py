@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from unittest import TestCase
-from unittest.mock import mock_open, patch, MagicMock
+from unittest.mock import mock_open, patch, MagicMock, DEFAULT
 from freezegun import freeze_time
 import cliutil
 
@@ -39,11 +39,161 @@ class CliUtilTest(TestCase):
             year=2020, month=9, day=1, hour=0, minute=0, second=0)
         self.assertFalse(cliutil.is_future(sametime_begin))
 
-    def test_parse_start_time(self):
+    def test_parse_date(self):
         """
-        FIXME
+        YYYY/MM/DD or MM/DD
         """
-        return True
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '2020/09/01'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '2020/9/01'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '2020/09/1'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '2020/9/1'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '09/01'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '9/01'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '09/1'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        with patch('cliutil._yyyymmdd') as mock:
+            datestr = '9/1'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr)
+
+        """
+        'sun|mon|tue|wed|thu|fri|sat'
+        """
+        with patch('cliutil._weekday') as mock:
+            datestr = 'Sun'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'mOn'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'tuE'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'wed'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'THu'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'fRI'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'SAT'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(datestr, 0)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'sun'
+            cliutil.parse_date(datestr, day_change_hour=5)
+            mock.assert_called_once_with(datestr, 5)
+
+        with patch('cliutil._weekday') as mock:
+            datestr = 'MON'
+            cliutil.parse_date(datestr, 2)
+            mock.assert_called_once_with(datestr, 2)
+
+        """
+        'today'
+        """
+        with patch('cliutil._today') as mock:
+            datestr = 'today'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(0)
+
+        with patch('cliutil._today') as mock:
+            datestr = 'TODAY'
+            cliutil.parse_date(datestr, day_change_hour=5)
+            mock.assert_called_once_with(5)
+
+        """
+        '+N'
+        """
+        with patch('cliutil._days_from_today') as mock:
+            datestr = '+1'
+            cliutil.parse_date(datestr)
+            mock.assert_called_once_with(1, 0)
+
+        with patch('cliutil._days_from_today') as mock:
+            datestr = '+3'
+            cliutil.parse_date(datestr, day_change_hour=5)
+            mock.assert_called_once_with(3, 5)
+
+        """
+        invalid value
+        """
+        with patch.multiple(
+            'cliutil',
+            _yyyymmdd=DEFAULT,
+            _weekday=DEFAULT,
+            _today=DEFAULT,
+            _days_from_today=DEFAULT) as functions:
+
+            result = cliutil.parse_date('')
+            functions['_yyyymmdd'].assert_not_called()
+            functions['_weekday'].assert_not_called()
+            functions['_today'].assert_not_called()
+            functions['_days_from_today'].assert_not_called()
+            self.assertIsNone(result)
+
+            result = cliutil.parse_date('1')
+            functions['_yyyymmdd'].assert_not_called()
+            functions['_weekday'].assert_not_called()
+            functions['_today'].assert_not_called()
+            functions['_days_from_today'].assert_not_called()
+            self.assertIsNone(result)
+
+            result = cliutil.parse_date('2020/2020/2020')
+            functions['_yyyymmdd'].assert_not_called()
+            functions['_weekday'].assert_not_called()
+            functions['_today'].assert_not_called()
+            functions['_days_from_today'].assert_not_called()
+            self.assertIsNone(result)
+
+            result = cliutil.parse_date('2020/09/01/02')
+            functions['_yyyymmdd'].assert_not_called()
+            functions['_weekday'].assert_not_called()
+            functions['_today'].assert_not_called()
+            functions['_days_from_today'].assert_not_called()
+            self.assertIsNone(result)
 
     def test_yyyymmdd(self):
         """
@@ -277,26 +427,6 @@ class CliUtilTest(TestCase):
             expect4 = datetime(year=2020, month=9, day=8)
             result4 = cliutil._days_from_today(days, day_change_hour=2)
             self.assertEqual(result4, expect4)
-
-        """
-        invalid value
-        datestr15 = ''
-        result15 = cliutil.parse_date(datestr15)
-        self.assertIsNone(result15)
-
-        datestr16 = '1'
-        result16 = cliutil.parse_date(datestr16)
-        self.assertIsNone(result16)
-
-        datestr17 = '2020/2020/2020'
-        result17 = cliutil.parse_date(datestr17)
-        self.assertIsNone(result17)
-
-        datestr18 = '2020/09/01/02'
-        result18 = cliutil.parse_date(datestr18)
-        self.assertIsNone(result18)
-
-        """
 
     def test_parse_time(self):
         """
