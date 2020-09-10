@@ -39,6 +39,93 @@ class CliUtilTest(TestCase):
             year=2020, month=9, day=1, hour=0, minute=0, second=0)
         self.assertFalse(cliutil.is_future(sametime_begin))
 
+    def test_parse_start_time(self):
+        """
+        parse_date(), parse_time()が適切な引数で呼ばれることを確認
+        wormup_sec秒分だけ前倒しされていることを確認
+        """
+        datestr = '2020/09/01'
+        timestr = '01:00:00'
+
+        """
+        without wormup_sec, day_change_hour
+        """
+        with patch.multiple(
+            'cliutil',
+            parse_date=DEFAULT,
+            parse_time=DEFAULT) as functions:
+
+            functions['parse_date'].return_value = datetime(
+                year=2020, month=9, day=1)
+            functions['parse_time'].return_value = timedelta(hours=1)
+
+            result = cliutil.parse_start_time(datestr, timestr)
+            expect = datetime(year=2020, month=9, day=1, hour=1)
+
+            functions['parse_date'].assert_called_once_with(datestr, 0)
+            functions['parse_time'].assert_called_once_with(timestr)
+            self.assertEqual(result, expect)
+
+        """
+        with wormup_sec=30, without day_change_hour
+        """
+        with patch.multiple(
+            'cliutil',
+            parse_date=DEFAULT,
+            parse_time=DEFAULT) as functions:
+
+            functions['parse_date'].return_value = datetime(
+                year=2020, month=9, day=1)
+            functions['parse_time'].return_value = timedelta(hours=1)
+
+            result = cliutil.parse_start_time(datestr, timestr, wormup_sec=30)
+            expect = datetime(
+                year=2020, month=9, day=1, hour=0, minute=59, second=30)
+
+            functions['parse_date'].assert_called_once_with(datestr, 0)
+            functions['parse_time'].assert_called_once_with(timestr)
+            self.assertEqual(result, expect)
+
+        """
+        with day_change_hour=2, without wormup_sec
+        """
+        with patch.multiple(
+            'cliutil',
+            parse_date=DEFAULT,
+            parse_time=DEFAULT) as functions:
+
+            functions['parse_date'].return_value = datetime(
+                year=2020, month=9, day=1)
+            functions['parse_time'].return_value = timedelta(hours=1)
+
+            result = cliutil.parse_start_time(
+                datestr, timestr, day_change_hour=2)
+            expect = datetime(year=2020, month=9, day=1, hour=1)
+
+            functions['parse_date'].assert_called_once_with(datestr, 2)
+            functions['parse_time'].assert_called_once_with(timestr)
+            self.assertEqual(result, expect)
+
+        """
+        with wormup_sec=30, day_change_hour=2
+        """
+        with patch.multiple(
+            'cliutil',
+            parse_date=DEFAULT,
+            parse_time=DEFAULT) as functions:
+
+            functions['parse_date'].return_value = datetime(year=2020, month=9, day=1)
+            functions['parse_time'].return_value = timedelta(hours=1)
+
+            result = cliutil.parse_start_time(
+                    datestr, timestr, wormup_sec=30, day_change_hour=2)
+            expect = datetime(
+                year=2020, month=9, day=1, hour=0, minute=59, second=30)
+
+            functions['parse_date'].assert_called_once_with(datestr, 2)
+            functions['parse_time'].assert_called_once_with(timestr)
+            self.assertEqual(result, expect)
+
     def test_parse_date(self):
         """
         YYYY/MM/DD or MM/DD
