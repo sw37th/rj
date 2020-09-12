@@ -22,16 +22,17 @@ Options:
 
 from datetime import datetime, timedelta
 from docopt import docopt
+import cliutil
 import importlib
 import rjsched
 import re
 import sys
 import time
 
-# dateline_hour: 一日の基準時刻(時)
+# day_change_hour: 一日の基準時刻(時)
 # 当日の基準時刻から翌日の基準時刻-1secまでを同一日とみなす。
-# dateline_hour=5の場合、05:00:00-28:59:59が同一日。
-dateline_hour = 5
+# day_change_hour=5の場合、05:00:00-28:59:59が同一日。
+day_change_hour = 5
 
 # wormup_sec: 録画開始のマージン
 # ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため
@@ -44,183 +45,6 @@ default_rectime = '00:29:30'
 #scheduler = "Torque"
 #scheduler = "Systemd"
 scheduler = "Openpbs"
-
-def check_start_time(date, time):
-    try:
-        begin = (
-            parse_date(date, dateline=dateline_hour) + parse_time(time)
-        )
-    except TypeError:
-        print("invalid DATE or TIME:", date, time)
-        return None
-
-    # wormup_secの秒数だけ開始時刻のマージンを取る
-    begin -= parse_time(str(wormup_sec))
-
-    if not is_future(begin):
-        print('start in the past')
-        return None
-
-    return begin
-
-def is_future(time):
-    """
-    引数で渡されたdatetimeオブジェクトが
-    現在時刻より未来の場合にTrueを返す
-    """
-    current = datetime.now()
-    if time > current:
-        return True
-    else:
-        return False
-
-def parse_channel(s_ch):
-    """
-    チャンネル番号をパース
-    """
-    re_ch = re.compile(r'^\d+$')
-    if not re.match(re_ch, s_ch):
-        return ''
-
-    return s_ch
-
-def parse_time(s_time):
-    """
-    'HH:MM:SS' or 'HH:MM' or 秒数を引数として受け取り、
-    00:00:00からの差分のtimedeltaオブジェクトとして返す
-    """
-    re_time = re.compile(r'^\d+:\d+:\d+$|^\d+:\d+$|^\d+$')
-    time = None
-
-    if re.match(re_time, s_time):
-        # 'HH:MM:SS' or 'HH:MM' or 秒数
-        t = list(map(int, s_time.split(':')))
-        if len(t) == 3:
-            time = timedelta(seconds=(t[0] * 3600) + (t[1] * 60) + t[2])
-        elif len(t) == 2:
-            time = timedelta(seconds=(t[0] * 3600) + (t[1] * 60))
-        elif len(t) == 1:
-            time = timedelta(seconds=t[0])
-
-    return time
-
-def parse_time_delta(s_time_delta):
-    """
-    'HH:MM:SS' or 'HH:MM:SS+' or 'HH:MM:SS-'を引数として受け取り、
-    timedeltaオブジェクトとして返す
-    """
-    re_delta = re.compile(r'^([\w:]+)([+-]*)$')
-    if re.match(re_delta, s_time_delta):
-        s_time, sign = re.match(re_delta, s_time_delta).group(1, 2)
-
-    time = parse_time(s_time)
-    if time:
-        if sign == '-':
-            return -time
-        else:
-            return time
-    else:
-        return None
-
-def parse_date(s_date, dateline=0, dateonly=True):
-    """
-    'YYYY/MM/DD|MM/DD|DD' or
-    'sun|mon|tue|wed|thu|fri|sat' or
-    'today' or
-    '+Nd'
-    を引数として受け取り、
-    'YYYY/MM/DD 00:00:00'のdatetimeオブジェクトとして返す
-
-    dateline: 基準時刻(hour)
-      ジョブの登録や表示の際、何時から何時までを当日とみなすかの
-      基準となる時刻を指定する。
-      dateline=5 は 05:00:00-28:59:59 を当日とみなす。
-      この場合、1/2 02:00:00 は 1/1 26:00:00 となる。
-      (深夜アニメ対策)
-
-    dateonly: 
-      作成したdatetimeオブジェクトにdateline時刻を反映させるか否か。
-      dateonlyがFalseの場合、returnするdatetimeオブジェクトは
-      'YYYY/MM/DD <dateline>:00:00'となる。
-    """
-    re_wday = re.compile(r'^sun$|^mon$|^tue$|^wed$|^thu$|^fri$|^sat$', re.I)
-    re_date = re.compile(r'^\d{4}/\d{1,2}/\d{1,2}$|^\d{1,2}/\d{1,2}$|^\d{1,2}$')
-    re_today = re.compile(r'^today$', re.I)
-    re_plus = re.compile(r'^\+(\d+)d$', re.I)
-    date = None
-
-    current = datetime.now()
-    if current.hour < dateline:
-        # 現在時刻が基準時刻未満の場合は前日とみなす
-        # ex) dateline: 5, n.hour: 2 の場合は前日の26時扱い
-        current -= timedelta(days=1)
-
-    try:
-        if re.match(re_wday, s_date):
-            # Weekday
-            wdaynum = {
-                'mon': 0,
-                'tue': 1,
-                'wed': 2,
-                'thu': 3,
-                'fri': 4,
-                'sat': 5,
-                'sun': 6,
-            }
-            offset = wdaynum.get(s_date.lower()) - current.weekday()
-
-            # ex) 日曜日の25:00(月曜日の1:00)に「日曜日26:00開始」の
-            #     録画予約を入れるとした場合
-            if current.hour < dateline and offset == 1:
-                # 現在時刻がdateline時までは当日扱いとする。
-                offset = 0
-
-            if offset < 0:
-                # next week
-                offset += 7
-
-            date = (
-                datetime(
-                    current.year, current.month, current.day
-                ) + timedelta(days=offset)
-            )
-
-        elif re.match(re_date, s_date):
-            # YYYY/MM/DD or MM/DD or DD
-            d = s_date.split('/')
-            if len(d) == 3:
-                year, month, day = map(int, d)
-            elif len(d) == 2:
-                month, day = map(int, d)
-                year = current.year
-            else:
-                day = int(d[0])
-                year = current.year
-                month = current.month
-            date = datetime(year, month, day)
-
-        elif re.match(re_today, s_date):
-            # today
-            date = datetime(current.year, current.month, current.day)
-
-        elif re.match(re_plus, s_date):
-            # +n day
-            offset = int(re.match(re_plus, s_date).group(1))
-            date = (
-                datetime(
-                    current.year,
-                    current.month,
-                    current.day
-                ) + timedelta(days=offset)
-            )
-
-    except ValueError:
-        pass
-
-    if not dateonly:
-        date += timedelta(seconds=dateline*3600)
-
-    return date
 
 def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
     """
@@ -386,18 +210,18 @@ def eval_dateline(time, dateline):
     """
     if time.hour >= dateline:
         wday = time.strftime("%a")
-        year = int(time.strftime("%Y"))
-        mon  = int(time.strftime("%m"))
-        day  = int(time.strftime("%d"))
-        hour = int(time.strftime("%H"))
+        year = time.strftime("%Y")
+        mon  = time.strftime("%m")
+        day  = time.strftime("%d")
+        hour = time.strftime("%H")
     else:
         # 24時以降、datelineまでを当日扱いに
         wday = (time - timedelta(days=1)).strftime("%a")
-        year = int((time - timedelta(days=1)).strftime("%Y"))
-        mon  = int((time - timedelta(days=1)).strftime("%m"))
-        day  = int((time - timedelta(days=1)).strftime("%d"))
-        hour = int(time.strftime("%H")) + 24
-    return (wday, year, mon, day, hour)
+        year = (time - timedelta(days=1)).strftime("%Y")
+        mon  = (time - timedelta(days=1)).strftime("%m")
+        day  = (time - timedelta(days=1)).strftime("%d")
+        hour = str(int(time.strftime("%H")) + 24)
+    return wday, year, mon, day, hour
 
 def main():
     mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
@@ -417,29 +241,39 @@ def main():
             repeat = ''
 
         # 引数チェック(チャンネル)
-        ch = parse_channel(args.get('CH'))
-        if not ch:
-            print('invalid CHannel:', args.get('CH'))
+        ch = args.get('CH', '')
+        if not ch.isdecimal():
+            print('invalid Channel: {}'.format(ch))
             sys.exit(1)
 
         # 引数チェック(開始時刻)
-        begin = check_start_time(args.get('DATE'), args.get('TIME'))
+        date_ = args.get('DATE', '')
+        time_ = args.get('TIME', '')
+        begin = cliutil.parse_start_time(
+            date_, time_, wormup_sec, day_change_hour)
         if not begin:
+            print('Invalid date, time: {} {}'.format(date_, time_))
             sys.exit(1)
 
         # 引数チェック(録画時間)
-        if args.get('RECORDINGTIME'):
-            rectime = parse_time(args.get('RECORDINGTIME'))
-        else:
-            rectime = parse_time(default_rectime)
+        #rectime_str = args.get('RECORDINGTIME', default_rectime)
+        rectime_str = args.get('RECORDINGTIME')
+        if not rectime_str:
+            rectime_str = default_rectime
 
+        rectime = cliutil.parse_time(rectime_str)
         if not rectime:
+            print('Invalid recording time, time: {}'.format(rectime))
             sys.exit(1)
+
+        name = args.get('NAME', '')
+        if not name:
+            print('Invalid name')
 
         jid = rec.add(ch, args.get('NAME'), begin, rectime, repeat)
         if jid:
             jobinfo = rec.get_job_info(jid=jid)
-            print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
+            print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
 
     elif args.get('del'):
         """
@@ -454,30 +288,28 @@ def main():
             sys.exit(1)
 
         print('REMOVE JOB:')
-        print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
+        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
 
         rec.remove(jid)
 
         print('\nCURRENT JOBS:')
         jobinfo = rec.get_job_info()
-        print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
+        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
 
     elif args.get('list'):
         """
         スケジュールされた録画ジョブを一覧表示する
         """
         date = None
-        s_date = args.get('DATE')
-        if s_date:
-            date = parse_date(
-                s_date, dateline=dateline_hour, dateonly=False
-            )
+        date_str = args.get('DATE')
+        if date_str:
+            date = cliutil.parse_date(date_str, day_change_hour)
             if not date:
                 print('invalit format:', s_date)
                 sys.exit(1)
-
         jobinfo = rec.get_job_info(date=date)
-        print_joblist(jobinfo, chinfo, dateline_hour, wormup_sec)
+
+        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
 
     elif args.get('show'):
         """
@@ -489,7 +321,7 @@ def main():
             print_job_information(
                 jobinfo,
                 chinfo,
-                dateline=dateline_hour,
+                dateline=day_change_hour,
                 wormup=wormup_sec)
 
     elif args.get('modbegin'):
@@ -500,7 +332,7 @@ def main():
 
         if args.get('DELTATIME'):
             # 相対時刻で変更
-            delta = parse_time_delta(args.get('DELTATIME'))
+            delta = cliutil.parse_time_delta(args.get('DELTATIME'))
             if not delta:
                 print('invalid DELTATIME: {}'.format(args.get('DELTATIME')))
                 sys.exit(1)
@@ -516,8 +348,8 @@ def main():
             joblist = rec.change_begin(jid, begin)
 
         if joblist:
-            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+            print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
                 '(Start time changed)')
         else:
             print('no such job: {}'.format(jid))
@@ -533,22 +365,22 @@ def main():
         m = re.search(r'.*(\+|-)', rectime_str)
         if m:
             # 現在の録画時間からの差分で変更
-            delta = parse_time_delta(rectime_str)
+            delta = cliutil.parse_time_delta(rectime_str)
             if not delta:
                 print('invalid RECORDINGTIME: {}'.format(rectime_str))
                 sys.exit(1)
             joblist = rec.change_rectime(jid, delta=delta)
         else:
             # 指定の録画時間で変更
-            rectime = parse_time(rectime_str)
+            rectime = cliutil.parse_time(rectime_str)
             if not rectime:
                 print('invalid RECORDINGTIME: {}'.format(rectime_str))
                 sys.exit(1)
             joblist = rec.change_rectime(jid, rectime)
 
         if joblist:
-            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+            print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
                 '(Recording time changed)')
         else:
             print('no such job: {}'.format(jid))
@@ -568,8 +400,8 @@ def main():
             sys.exit(1)
 
         if joblist:
-            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+            print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
                 '(channel changed)')
         else:
             print('no such job: {}'.format(jid))
@@ -585,8 +417,8 @@ def main():
         joblist = rec.change_name(jid, name)
 
         if joblist:
-            print_joblist([joblist[0]], chinfo, dateline_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, dateline_hour, wormup_sec,
+            print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
                 '(channel changed)')
         else:
             print('no such job: {}'.format(jid))
@@ -619,7 +451,7 @@ def main():
         changed = rec.get_job_info(jid=jid)[0]
 
         # 変更後のジョブ情報を表示
-        print_joblist([changed], chinfo, dateline_hour, wormup_sec, message)
+        print_joblist([changed], chinfo, day_change_hour, wormup_sec, message)
 
     elif args.get('listch'):
         """
