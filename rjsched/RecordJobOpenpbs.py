@@ -184,13 +184,12 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.joblist = sorted(
             self.joblist, key=lambda x: x['rec_begin'])
 
-    def get_job_info(self, jid='', date=None,):
+    def get_job_info(self, jid=''):
         """
         ジョブ情報をリストに詰め、呼び出し元に返す
         下記の引数が指定されている場合はそのジョブ情報のみ抽出する
 
         jid:  ジョブID (str)
-        date: ジョブの実行日 (datetime)
         """
 
         # ジョブ情報リスト取得
@@ -202,12 +201,6 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         if jid:
             # 指定されたジョブIDの情報のみ抽出
             joblist = [i for i in self.joblist if i['rj_id'] in jid]
-        elif date:
-            # 指定された日に録画を開始するジョブの情報のみ抽出
-            nextday = date + timedelta(days=1)
-            joblist = [
-                i for i in self.joblist
-                    if i['rec_begin'] >= date and i['rec_begin'] < nextday]
         else:
             # 全ジョブ
             joblist = self.joblist
