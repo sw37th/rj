@@ -475,56 +475,36 @@ class RecordJobOpenpbsTest(TestCase):
         get_job_info()の引数に応じたジョブ情報のリストが返ってくることを確認
         """
         joblist_all = [
-            {
-                'rj_id': '69',
-                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
-            {
-                'rj_id': '71',
-                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
-            {
-                'rj_id': '68',
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)},
-            {
-                'rj_id': '70',
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
-        expected_jid69 = [
-            {
-                'rj_id': '69',
-                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)}]
+            {'rj_id': '69'},
+            {'rj_id': '71'},
+            {'rj_id': '68'},
+            {'rj_id': '70'}]
+
+        expected_jid68 = [{'rj_id': '68'}]
+        expected_jid69 = [{'rj_id': '69'}]
+        expected_jid70 = [{'rj_id': '70'}]
+        expected_jid71 = [{'rj_id': '71'}]
         expected_jid72 = []
-        expected_aug16 = [
-            {
-                'rj_id': '69',
-                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)},
-            {
-                'rj_id': '71',
-                'rec_begin': datetime(2020, 8, 16, 20, 1, 50)}]
-        expected_aug17 = []
-        expected_aug18 = [
-            {
-                'rj_id': '68',
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)},
-            {
-                'rj_id': '70',
-                'rec_begin': datetime(2020, 8, 18, 23, 59, 50)}]
 
         self.rec._fetch_joblist = MagicMock()
         self.rec._check_tuner_resource = MagicMock()
         self.rec.joblist = joblist_all
 
         # ジョブID指定
+        joblist = self.rec.get_job_info(jid='68')
+        self.assertEqual(joblist, expected_jid68)
+
         joblist = self.rec.get_job_info(jid='69')
         self.assertEqual(joblist, expected_jid69)
+
+        joblist = self.rec.get_job_info(jid='70')
+        self.assertEqual(joblist, expected_jid70)
+
+        joblist = self.rec.get_job_info(jid='71')
+        self.assertEqual(joblist, expected_jid71)
+
         joblist = self.rec.get_job_info(jid='72')
         self.assertEqual(joblist, expected_jid72)
-
-        # 日付指定
-        joblist = self.rec.get_job_info(date=datetime(2020, 8, 16, 0, 0, 0))
-        self.assertEqual(joblist, expected_aug16)
-        joblist = self.rec.get_job_info(date=datetime(2020, 8, 17, 0, 0, 0))
-        self.assertEqual(joblist, expected_aug17)
-        joblist = self.rec.get_job_info(date=datetime(2020, 8, 18, 0, 0, 0))
-        self.assertEqual(joblist, expected_aug18)
 
         # 指定なし
         joblist = self.rec.get_job_info()
