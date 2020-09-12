@@ -46,7 +46,7 @@ default_rectime = '00:29:30'
 #scheduler = "Systemd"
 scheduler = "Openpbs"
 
-def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
+def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, date=None):
     """
     ジョブの配列を受け取り一覧表示する
     """
@@ -57,13 +57,18 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
         'ASADORA': 'A',
         'ONESHOT': '',
     }
-    if header:
-        print(header)
-    else:
-        print(
-            'ID       Ch             Title                    ' +
-            'Start           walltime rep tuner'
-        )
+
+    if date:
+        # 指定された日に録画を開始するジョブの情報のみ抽出
+        begin = datetime(date.year, date.month, date.day, dateline)
+        end = begin + timedelta(days=1)
+        jobinfo = [
+            i for i in jobinfo
+                if i['rec_begin'] >= begin and i['rec_begin'] < end]
+
+    print(
+        'ID       Ch             Title                    '\
+        'Start           walltime rep tuner')
 
     prev_wday = ''
     for j in jobinfo:
@@ -76,7 +81,7 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, header=None):
 
         if wday != prev_wday:
             print(
-                '-------- -------------- ------------------------ ' +
+                '-------- -------------- ------------------------ '\
                 '--------------- -------- --- -----'
             )
 
@@ -305,11 +310,11 @@ def main():
         if date_str:
             date = cliutil.parse_date(date_str, day_change_hour)
             if not date:
-                print('invalit format:', s_date)
+                print('invalid DATE:', date_str)
                 sys.exit(1)
-        jobinfo = rec.get_job_info(date=date)
+        jobinfo = rec.get_job_info()
 
-        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
+        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec, date)
 
     elif args.get('show'):
         """
@@ -341,16 +346,17 @@ def main():
             # 絶対時刻で変更
             d = args.get('DATE')
             t = args.get('TIME')
-            begin = check_start_time(d, t)
+            begin = cliutil.parse_start_time(d, t)
             if not begin:
                 print('invalid DATE TIME: {} {}'.format(d, t))
                 sys.exit(1)
             joblist = rec.change_begin(jid, begin)
 
         if joblist:
+            print('Before')
             print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
-                '(Start time changed)')
+            print('\nAfter')
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec)
         else:
             print('no such job: {}'.format(jid))
             sys.exit(1)
@@ -379,9 +385,10 @@ def main():
             joblist = rec.change_rectime(jid, rectime)
 
         if joblist:
+            print('Before')
             print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
-                '(Recording time changed)')
+            print('\nAfter')
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec)
         else:
             print('no such job: {}'.format(jid))
             sys.exit(1)
@@ -400,9 +407,10 @@ def main():
             sys.exit(1)
 
         if joblist:
+            print('Before')
             print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
-                '(channel changed)')
+            print('\nAfter')
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec)
         else:
             print('no such job: {}'.format(jid))
             sys.exit(1)
@@ -417,9 +425,10 @@ def main():
         joblist = rec.change_name(jid, name)
 
         if joblist:
+            print('Before')
             print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
-            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec,
-                '(channel changed)')
+            print('After')
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec)
         else:
             print('no such job: {}'.format(jid))
             sys.exit(1)
@@ -451,7 +460,8 @@ def main():
         changed = rec.get_job_info(jid=jid)[0]
 
         # 変更後のジョブ情報を表示
-        print_joblist([changed], chinfo, day_change_hour, wormup_sec, message)
+        print(message)
+        print_joblist([changed], chinfo, day_change_hour, wormup_sec)
 
     elif args.get('listch'):
         """
