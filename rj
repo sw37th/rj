@@ -60,11 +60,11 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, date=None):
 
     if date:
         # 指定された日に録画を開始するジョブの情報のみ抽出
-        begin = datetime(date.year, date.month, date.day, dateline)
-        end = begin + timedelta(days=1)
+        date_begin = datetime(date.year, date.month, date.day, dateline)
+        date_end = date_begin + timedelta(days=1)
         jobinfo = [
             i for i in jobinfo
-                if i['rec_begin'] >= begin and i['rec_begin'] < end]
+                if i['rec_begin'] >= date_begin and i['rec_begin'] < date_end]
 
     print(
         'ID       Ch             Title                    '\
@@ -150,7 +150,7 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
             s_walltime = '-'
 
         # チャンネル番号と局名を取得
-        chnum = int(j.get('channel'))
+        chnum = j.get('channel')
         chname = chinfo.get(chnum, '')
 
         # 実行中のジョブの経過時間を取得
