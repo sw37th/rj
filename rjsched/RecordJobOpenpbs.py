@@ -345,6 +345,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def change_channel(self, jid='', ch=''):
         """
         録画するチャンネルを変更する
+        変更前と変更後のジョブ情報リストを返す
 
         jid:  ジョブID (str)
         ch:   変更後のチャンネル番号 (str)
@@ -360,11 +361,10 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def change_name(self, jid='', name=''):
         """
         番組名を変更する
+        変更前と変更後のジョブ情報リストを返す
 
         jid:  ジョブID (str)
         name:   変更後の番組名 (str)
-
-        FIXME: 録画中の番組名の変更
         """
         joblist = self.get_job_info(jid)
         if joblist:
