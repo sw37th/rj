@@ -209,8 +209,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
     def add(self, ch, title, begin, rectime, repeat=''):
         """
-        ジョブをサブミットする
-        qsubコマンドの出力するジョブIDからID番号のみを切り出して返す
+        ジョブをサブミットし、ジョブ情報リストを返す
 
         ch:      チャンネル番号(str)
         title:   番組名(str)
@@ -242,7 +241,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 '-',]
 
         proc = self._run_command(command=qsub, _input=jobexec)
-        return proc.stdout.split('.', 1)[0]
+        return self.get_job_info(proc.stdout.split('.', 1)[0])
 
     def remove(self, jid=''):
         """
