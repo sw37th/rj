@@ -11,7 +11,6 @@ Usage:
   rj modch JOBID CH
   rj modname JOBID NAME
   rj setrep JOBID TYPE
-  rj unsetrep JOBID
   rj listch rj -h | --help
 
 Options:
@@ -275,10 +274,8 @@ def main():
         if not name:
             print('Invalid name')
 
-        jid = rec.add(ch, args.get('NAME'), begin, rectime, repeat)
-        if jid:
-            jobinfo = rec.get_job_info(jid=jid)
-            print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
+        jobinfo = rec.add(ch, args.get('NAME'), begin, rectime, repeat)
+        print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
 
     elif args.get('del'):
         """
@@ -433,21 +430,16 @@ def main():
             print('no such job: {}'.format(jid))
             sys.exit(1)
 
-    elif args.get('setrep') or args.get('unsetrep'):
+    elif args.get('setrep'):
         """
         リピート条件をセット/アンセット
         """
-        repeat_flag = ['weekly', 'daily', 'weekday', 'asadora']
+        repeat_flag = ['weekly', 'daily', 'weekday', 'asadora', 'norepeat']
         if args.get('setrep'):
             repeat = args.get('TYPE')
             if repeat.lower() not in repeat_flag:
                 print('setrep TYPE:', ', '.join(repeat_flag))
                 sys.exit(1)
-            message = '(Set repeat flag)'
-        else:
-            # アンセット
-            repeat = ''
-            message = '(Unset repeat flag)'
 
         jid = args.get('JOBID')[0]
 
@@ -456,12 +448,14 @@ def main():
             print('No such jobid:', ', '.join(jid))
             sys.exit(1)
 
-        rec.change_repeat(origin, repeat)
-        changed = rec.get_job_info(jid=jid)[0]
-
-        # 変更後のジョブ情報を表示
-        print(message)
-        print_joblist([changed], chinfo, day_change_hour, wormup_sec)
+        joblist = rec.change_repeat(origin, repeat)
+        if joblist:
+            print('Before')
+            print_joblist([joblist[0]], chinfo, day_change_hour, wormup_sec)
+            print('After')
+            print_joblist([joblist[1]], chinfo, day_change_hour, wormup_sec)
+        else:
+            print('{} cannot set repeat flag.'.format(scheduler))
 
     elif args.get('listch'):
         """
