@@ -28,8 +28,10 @@ class RecordJobOpenpbsTest(TestCase):
         録画予約ジョブ用qsubコマンドの引数と
         録画用recpt1コマンドの引数を確認
         """
+        joblist_origin = [{'rj_id': '68'}]
         proc = MagicMock()
         self.rec._run_command = MagicMock(return_value=proc)
+        self.rec.get_job_info = MagicMock(return_value=joblist_origin)
 
         # 地上波
         expected_qsub_tt = [
@@ -49,12 +51,13 @@ class RecordJobOpenpbsTest(TestCase):
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '110.example.org'
 
-        jid = self.rec.add('15', 'test_tt', datetime(2020, 8, 19, 20, 29, 30),
-            timedelta(seconds=1770))
+        joblist = self.rec.add('15', 'test_tt',
+            datetime(2020, 8, 19, 20, 29, 30), timedelta(seconds=1770))
 
         self.rec._run_command.assert_called_with(
             command=expected_qsub_tt, _input=expected_jobexec_tt)
-        self.assertEqual(jid, '110')
+        self.rec.get_job_info.assert_called_with('110')
+        self.assertEqual(joblist, joblist_origin)
 
         # 衛星放送
         expected_qsub_tt = [
@@ -74,12 +77,13 @@ class RecordJobOpenpbsTest(TestCase):
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '111.example.org'
 
-        jid = self.rec.add('211', 'test_bs', datetime(2020, 8, 19, 20, 29, 30),
-            timedelta(seconds=1770))
+        joblist = self.rec.add('211', 'test_bs', 
+            datetime(2020, 8, 19, 20, 29, 30), timedelta(seconds=1770))
 
         self.rec._run_command.assert_called_with(
             command=expected_qsub_tt, _input=expected_jobexec_tt)
-        self.assertEqual(jid, '111')
+        self.rec.get_job_info.assert_called_with('111')
+        self.assertEqual(joblist, joblist_origin)
 
     def test_remove(self):
         """
