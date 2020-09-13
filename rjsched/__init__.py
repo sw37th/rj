@@ -41,3 +41,10 @@ class RecordJob:
             print('channel information cannot load: {}'.format(err))
             return {}
         return chinfo
+
+    def change_repeat(self, job, repeat):
+        """
+        リピート設定変更用クラスメソッド
+        Systemd以外のスケジューラーではこれが呼ばれる
+        """
+        return []
