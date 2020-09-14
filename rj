@@ -20,7 +20,8 @@ Options:
 """
 
 from datetime import datetime, timedelta
-from docopt import docopt
+#from docopt import docopt
+import argparse
 import cliutil
 import importlib
 import rjsched
@@ -458,4 +459,92 @@ def main():
 """
 main
 """
-main()
+#main()
+
+def get_args():
+    # トップレベルパーサー
+    parser = argparse.ArgumentParser()
+
+    # サブレベルパーサー
+    subparsers = parser.add_subparsers()
+
+    # addサブコマンド
+    parser_add = subparsers.add_parser('add', help='add TV recording job')
+    parser_add.add_argument('ch', type=str)
+    parser_add.add_argument('name', type=str)
+    parser_add.add_argument('date', type=str)
+    parser_add.add_argument('time', type=str)
+    parser_add.add_argument('rectime', type=str, nargs='?', default=default_rectime)
+    parser_add.set_defaults(func=add_job)
+
+    # listサブコマンド
+    parser_list = subparsers.add_parser('list', help='list TV recording job')
+    parser_list.add_argument('date', type=str, nargs='?', default='')
+    parser_list.set_defaults(func=list_job)
+
+    return parser.parse_args()
+
+def main_():
+    mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
+    cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
+    rec = cls()
+    #chinfo = rec.get_channel_info()
+
+    args = get_args()
+    args.func(args, rec)
+
+def add_job(args, rec):
+    """
+    録画ジョブを追加する
+    """
+    print(args)
+
+    chinfo = rec.get_channel_info()
+
+    #if args.get('--repeat'):
+    #    repeat = args.get('--repeat')[0]
+    #else:
+    #    repeat = ''
+    repeat = ''
+
+    # 引数チェック(チャンネル)
+    if not args.ch.isdecimal():
+        print('invalid Channel: {}'.format(ch))
+        sys.exit(1)
+
+    # 引数チェック(開始時刻)
+    begin = cliutil.parse_start_time(
+        args.date, args.time, wormup_sec, day_change_hour)
+    if not begin:
+        print('Invalid date, time: {} {}'.format(date, time))
+        sys.exit(1)
+
+    # 引数チェック(録画時間)
+    rectime = cliutil.parse_time(args.rectime)
+    if not rectime:
+        print('Invalid recording time, time: {}'.format(rectime))
+        sys.exit(1)
+
+    jobinfo = rec.add(args.ch, args.name, begin, rectime, repeat)
+    print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec)
+
+def list_job(args, rec):
+    """
+    スケジュールされた録画ジョブを一覧表示する
+    """
+    chinfo = rec.get_channel_info()
+
+    date = None
+    if args.date:
+        date = cliutil.parse_date(date_str, day_change_hour)
+        if not date:
+            print('invalid DATE:', date)
+            sys.exit(1)
+    jobinfo = rec.get_job_info()
+
+    print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec, date)
+
+"""
+main_
+"""
+main_()
