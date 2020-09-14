@@ -534,15 +534,15 @@ def list_job(args, rec):
     """
     chinfo = rec.get_channel_info()
 
-    date = None
+    date_ = None
     if args.date:
-        date = cliutil.parse_date(date_str, day_change_hour)
-        if not date:
-            print('invalid DATE:', date)
+        date_ = cliutil.parse_date(args.date, day_change_hour)
+        if not date_:
+            print('invalid DATE:', date_)
             sys.exit(1)
     jobinfo = rec.get_job_info()
 
-    print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec, date)
+    print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec, date_)
 
 """
 main_
