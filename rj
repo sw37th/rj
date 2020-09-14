@@ -87,7 +87,7 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, date=None):
 
         # ジョブのチャンネル番号を元に対応する局名を取得
         chnum = j.get('channel')
-        chname = chinfo.get(int(chnum), '')
+        chname = chinfo.get(chnum, '')
 
         # Walltimeを取得
         walltime = strhms(j.get('walltime').total_seconds())
@@ -146,7 +146,7 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
 
         # チャンネル番号と局名を取得
         chnum = j.get('channel')
-        chname = chinfo.get(int(chnum), '')
+        chname = chinfo.get(chnum, '')
 
         print('Title: {}'.format(j.get('rj_title')))
         print('    Job Id:           {}'.format(j.get('rj_id')))
@@ -221,7 +221,7 @@ def main():
     cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
     rec = cls()
 
-    chinfo = rec.get_channel_info().get('channel', {})
+    chinfo = rec.get_channel_info()
 
     args = docopt(__doc__)
     if args.get('add'):

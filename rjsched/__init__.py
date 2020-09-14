@@ -37,10 +37,11 @@ class RecordJob:
         try:
             with open(self.channel_file) as f:
                 chinfo = yaml.load(f)
-        except (PermissionError, FileNotFoundError) as err:
+        except (PermissionError, FileNotFoundError, yaml.YAMLError) as err:
             print('channel information cannot load: {}'.format(err))
             return {}
-        return chinfo
+
+        return {str(i): str(j) for i, j in chinfo.items()}
 
     def change_repeat(self, job, repeat):
         """
