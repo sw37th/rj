@@ -83,26 +83,20 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, date=None):
                 '-------- -------------- ------------------------ '\
                 '--------------- -------- --- -----'
             )
-
-        prev_wday = wday
+            prev_wday = wday
 
         # ジョブのチャンネル番号を元に対応する局名を取得
-        chnum = int(j.get('channel'))
-        chname = chinfo.get(chnum, '')
+        chnum = j.get('channel')
+        chname = chinfo.get(int(chnum), '')
 
         # Walltimeを取得
-        walltime = j.get('walltime')
-        if walltime:
-            s_walltime = strhms(walltime.total_seconds())
-        else:
-            s_walltime = ''
+        walltime = strhms(j.get('walltime').total_seconds())
 
         # 実行中のジョブの経過時間を取得
-        elapse = j.get('elapse')
-        if elapse:
-            s_elapse = strhms(elapse.total_seconds())
+        if j.get('elapse'):
+            elapse = strhms(j.get('elapse').total_seconds())
         else:
-            s_elapse = ''
+            elapse = ''
 
         # ジョブの状態を取得
         state = j.get('record_state', '')
@@ -120,11 +114,11 @@ def print_joblist(jobinfo, chinfo={}, dateline=0, wormup=0, date=None):
             chname,
             j.get('rj_title', ''),
             starttime,
-            s_walltime,
+            walltime,
             repeat_state[repeat],
             j.get('tuner', ''),
             state,
-            s_elapse))
+            elapse))
 
 def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
     """
@@ -142,40 +136,35 @@ def print_job_information(jobinfo, chinfo={}, dateline=0, wormup=0):
         endtime = str_w_ymd_hms(end, dateline, year=True, sec=True)
 
         # Walltimeを取得
-        walltime = j.get('walltime')
-        if walltime:
-            s_walltime = strhms(walltime.total_seconds())
+        walltime = strhms(j.get('walltime').total_seconds())
+
+        # 実行中のジョブの経過時間を取得
+        if j.get('elapse'):
+            elapse = strhms(j.get('elapse').total_seconds())
         else:
-            s_walltime = '-'
+            elapse = '-'
 
         # チャンネル番号と局名を取得
         chnum = j.get('channel')
-        chname = chinfo.get(chnum, '')
+        chname = chinfo.get(int(chnum), '')
 
-        # 実行中のジョブの経過時間を取得
-        elapse = j.get('elapse')
-        if elapse:
-            s_elapse = strhms(elapse.total_seconds())
-        else:
-            s_elapse = None
-
-        print('Title:', j.get('rj_title'))
-        print('  Job Id:          ', j.get('rj_id', '-'))
-        print('  Channel number:  ', chnum)
-        print('  Channel name:    ', chname)
-        print('  Start:           ', starttime)
-        print('  End:             ', endtime)
-        print('  Walltime:        ', s_walltime)
-        print('  Elapse time:     ', s_elapse)
-        print('  Owner:           ', j.get('user', '-'))
-        print('  Group:           ', j.get('group', '-'))
-        print('  Tuner:           ', j.get('tuner', '-'))
-        print('  State:           ', j.get('record_state', '-'))
-        print('  Alert:           ', j.get('alert', '-'))
-        print('  Job execute time:', j.get('Execution_Time', '-'))
-        print('  Job create time: ', j.get('ctime', '-'))
-        print('  Job modify time: ', j.get('mtime', '-'))
-        print('  Execute host:    ', j.get('exec_host', '-'))
+        print('Title: {}'.format(j.get('rj_title')))
+        print('    Job Id:           {}'.format(j.get('rj_id')))
+        print('    Channel number:   {}'.format(chnum))
+        print('    Channel name:     {}'.format(chname))
+        print('    Start:            {}'.format(starttime))
+        print('    End:              {}'.format(endtime))
+        print('    Walltime:         {}'.format(walltime))
+        print('    Elapse time:      {}'.format(elapse))
+        print('    Owner:            {}'.format(j.get('user')))
+        print('    Group:            {}'.format(j.get('group')))
+        print('    Tuner:            {}'.format(j.get('tuner')))
+        print('    State:            {}'.format(j.get('record_state')))
+        print('    Alert:            {}'.format(j.get('alert')))
+        print('    Job execute time: {}'.format(j.get('Execution_Time')))
+        print('    Job create time:  {}'.format(j.get('ctime')))
+        print('    Job modify time:  {}'.format(j.get('mtime')))
+        print('    Execute host:     {}'.format(j.get('exec_host')))
 
 def strhms(sec):
     """
