@@ -507,8 +507,6 @@ def add_job(args, rec):
     """
     録画ジョブを追加する
     """
-    print(args)
-
     chinfo = rec.get_channel_info()
 
     #if args.get('--repeat'):
@@ -527,6 +525,10 @@ def add_job(args, rec):
         args.date, args.time, wormup_sec, day_change_hour)
     if not begin:
         print('Invalid date, time: {} {}'.format(date, time))
+        sys.exit(1)
+
+    if not cliutil.is_future(begin):
+        print('Start in the past.')
         sys.exit(1)
 
     # 引数チェック(録画時間)
