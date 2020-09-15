@@ -115,6 +115,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         # 同一インスタンスで複数回呼ばれた際に古い情報を返さないよう毎回クリアする
         self.joblist.clear()
         current = datetime.now()
+        chlist = self.get_channel_info()
 
         proc = self._run_command(self.qstat)
         jobs = json.loads(proc.stdout).get('Jobs', {})
@@ -133,6 +134,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 else:
                     # 不正なチャンネル番号
                     job['channel'] = '0'
+            job['station_name'] = chlist.get(job.get('channel'), '')
 
             # 録画時間
             wt_h, wt_m, wt_s = [

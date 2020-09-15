@@ -341,6 +341,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '69',
                 'channel': '181',
+                'station_name': 'BS-fuji',
                 'rj_title': 'bs_run',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 16, 20, 1, 50),
@@ -358,6 +359,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '71',
                 'channel': '25',
+                'station_name': 'NTV',
                 'rj_title': 'tt_run',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 16, 20, 1, 50),
@@ -375,6 +377,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '68',
                 'channel': '181',
+                'station_name': 'BS-fuji',
                 'rj_title': 'bs_wait',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
@@ -391,6 +394,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '70',
                 'channel': '25',
+                'station_name': 'NTV',
                 'rj_title': 'tt_wait',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 18, 23, 59, 50),
@@ -407,6 +411,8 @@ class RecordJobOpenpbsTest(TestCase):
         proc = MagicMock()
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
+        self.rec.get_channel_info = MagicMock(
+            return_value={'25': 'NTV', '181': 'BS-fuji'})
 
         self.rec._fetch_joblist()
         self.assertEqual(self.rec.joblist, joblist_expected)
@@ -445,6 +451,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '1',
                 'channel': '0',
+                'station_name': '',
                 'rj_title': 'notrecjob',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 20, 23, 59, 50),
@@ -461,6 +468,7 @@ class RecordJobOpenpbsTest(TestCase):
             {
                 'rj_id': '2',
                 'channel': '0',
+                'station_name': '',
                 'rj_title': 'notrecjob',
                 'walltime': timedelta(0, 1770),
                 'rec_begin': datetime(2020, 8, 20, 23, 59, 50),
