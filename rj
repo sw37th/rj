@@ -465,22 +465,32 @@ def get_args():
     # トップレベルパーサー
     parser = argparse.ArgumentParser()
 
-    # サブレベルパーサー
+    # セカンドレベルパーサー
     subparsers = parser.add_subparsers()
 
-    # addサブコマンド
-    parser_add = subparsers.add_parser('add', help='add TV recording job')
-    parser_add.add_argument('ch', type=str)
-    parser_add.add_argument('name', type=str)
-    parser_add.add_argument('date', type=str)
-    parser_add.add_argument('time', type=str)
-    parser_add.add_argument('rectime', type=str, nargs='?', default=default_rectime)
+    # セカンドレベルパーサーからサブコマンドを生成
+    parser_add = subparsers.add_parser('add', help='add TV recording JOB')
+    parser_list = subparsers.add_parser('list', help='list JOBs')
+    parser_del = subparsers.add_parser('del', help='delete JOBs')
+
+    # addサブコマンドの引数設定
+    parser_add.add_argument('ch', type=str, help='channel number')
+    parser_add.add_argument('name', type=str, help='program name')
+    parser_add.add_argument('date', type=str, help='airdate')
+    parser_add.add_argument('time', type=str, help='airtime')
+    parser_add.add_argument('rectime', type=str, nargs='?',
+        default=default_rectime, help='recording time')
     parser_add.set_defaults(func=add_job)
 
-    # listサブコマンド
-    parser_list = subparsers.add_parser('list', help='list TV recording job')
-    parser_list.add_argument('date', type=str, nargs='?', default='')
+    # listサブコマンドの引数設定
+    parser_list.add_argument('date', type=str, nargs='?', default='',
+        help='airdate')
     parser_list.set_defaults(func=list_job)
+
+    # delサブコマンドの引数設定
+    parser_del.add_argument('jobid', type=str, nargs='+',
+        help='JOB IDs to delete')
+    parser_del.set_defaults(func=del_job)
 
     return parser.parse_args()
 
@@ -543,6 +553,32 @@ def list_job(args, rec):
     jobinfo = rec.get_job_info()
 
     print_joblist(jobinfo, chinfo, day_change_hour, wormup_sec, date_)
+
+def del_job(args, rec):
+    """
+    録画ジョブを削除する
+    """
+    chinfo = rec.get_channel_info()
+    jobinfo = rec.get_job_info()
+
+    # 引数で渡されたジョブIDのうち、存在するジョブのみ削除対象として抽出
+    delete_jobs = [i for i in jobinfo if i.get('rj_id') in args.jobid]
+
+    delete_jobids = set([i.get('rj_id') for i in delete_jobs])
+    not_exist_jobids = set(args.jobid) - delete_jobids
+
+    # 引数で渡されたジョブIDのうち、存在しないジョブIDを警告表示
+    if not_exist_jobids:
+        print('No such jobid: {}\n'.format(", ".join(not_exist_jobids)))
+
+    if delete_jobids:
+        # 削除対象ジョブを表示
+        print('REMOVE JOB:')
+        print_joblist(delete_jobs, chinfo, day_change_hour, wormup_sec)
+
+        # ジョブ削除
+        for jid in delete_jobids:
+            rec.remove(jid)
 
 """
 main_
