@@ -470,8 +470,9 @@ def get_args():
 
     # セカンドレベルパーサーからサブコマンドを生成
     parser_add = subparsers.add_parser('add', help='add TV recording JOB')
-    parser_list = subparsers.add_parser('list', help='list JOBs')
     parser_del = subparsers.add_parser('del', help='delete JOBs')
+    parser_list = subparsers.add_parser('list', help='list JOBs')
+    parser_show = subparsers.add_parser('show', help='show JOB information')
 
     # addサブコマンドの引数設定
     parser_add.add_argument('ch', type=str, help='channel number')
@@ -482,15 +483,19 @@ def get_args():
         default=default_rectime, help='recording time')
     parser_add.set_defaults(func=add_job)
 
+    # delサブコマンドの引数設定
+    parser_del.add_argument('jobid', type=str, nargs='+',
+        help='JOB IDs to delete')
+    parser_del.set_defaults(func=del_job)
+
     # listサブコマンドの引数設定
     parser_list.add_argument('date', type=str, nargs='?', default='',
         help='airdate')
     parser_list.set_defaults(func=list_job)
 
-    # delサブコマンドの引数設定
-    parser_del.add_argument('jobid', type=str, nargs='+',
-        help='JOB IDs to delete')
-    parser_del.set_defaults(func=del_job)
+    # showサブコマンドの引数設定
+    parser_show.add_argument('jobid', type=str, help="JOB ID")
+    parser_show.set_defaults(func=show_job)
 
     return parser.parse_args()
 
@@ -550,6 +555,17 @@ def list_job(args, rec):
     jobinfo = rec.get_job_info()
 
     print_joblist(jobinfo, day_change_hour, wormup_sec, date_)
+
+def show_job(args, rec):
+    """
+    引数に指定されたIDのジョブを表示する
+    """
+    jobinfo = rec.get_job_info(args.jobid)
+    if jobinfo:
+        print_job_information(
+            jobinfo,
+            dateline=day_change_hour,
+            wormup=wormup_sec)
 
 def del_job(args, rec):
     """
