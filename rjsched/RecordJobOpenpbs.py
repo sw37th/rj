@@ -106,7 +106,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         'rec_begin':    録画開始時刻 (datetime)
         'rec_end':      録画終了時刻 (datetime)
         'walltime':     録画時間 (timedelta)
-        'elapse':       実行中のジョブのみ。録画開始からの経過時間 (timedelta)
+        'elapse':       録画開始からの経過時間 (timedelta)
         'qtime':        ジョブのキュー追加時刻 (datetime)
         'ctime':        ジョブの作成時刻 (datetime)
         'mtime':        ジョブをMoMが最後にモニタした時刻 (datetime)
@@ -145,6 +145,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 # waiting
                 job['rec_begin'] = datetime.strptime(
                     v.get('Execution_Time'), "%a %b %d %H:%M:%S %Y")
+                job['elapse'] = None
             else:
                 # queued or running
                 job['rec_begin'] = datetime.strptime(
