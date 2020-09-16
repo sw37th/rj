@@ -266,12 +266,12 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         録画ジョブの開始時刻を指定時刻に変更
         変更後のジョブ情報を格納したjoblistを返す
 
-        joblist:   変更対象ジョブの格納されたjoblist (list)
-                   複数のジョブ情報が格納されている場合は先頭のみ使用
-        begin: 録画開始時刻 (datetime)
-        delta: 現在の録画開始時刻との差分 (timedelta)
-
-        begin, deltaが両方指定された場合はdeltaが優先される
+        joblist: 変更対象ジョブの格納されたjoblist (list)
+                 複数のジョブ情報が格納されている場合は先頭のみ使用
+        begin:   録画開始時刻 (datetime)
+                 begin, deltaが両方指定された場合はdeltaが優先される
+        delta:   現在の録画開始時刻との差分 (timedelta)
+                 begin, deltaが両方指定された場合はdeltaが優先される
         """
         jid = joblist[0].get('rj_id')
         if delta:
@@ -282,33 +282,27 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return self.get_job_info(jid)
 
-    def change_rectime(self, jid='', rectime=None, delta=None):
+    def change_rectime(self, joblist, rectime=None, delta=None):
         """
         録画時間を指定時間に変更
-        変更前と変更後のジョブ情報をリストに詰めて返す
+        変更後のジョブ情報を格納したjoblistを返す
 
-        jid:     ジョブID (str)
+        joblist: 変更対象ジョブの格納されたjoblist (list)
+                 複数のジョブ情報が格納されている場合は先頭のみ使用
         rectime: 録画時間 (timedelta)
+                 rectime, deltaが両方指定された場合はdeltaを優先する
         delta:   現在の録画時間との差分 (timedelta)
-
-        rectime, deltaが両方指定された場合はdeltaを優先する
+                 rectime, deltaが両方指定された場合はdeltaを優先する
         """
-        joblist = self.get_job_info(jid)
-        if joblist:
-            if delta:
-                rectime = joblist[0].get('walltime') + delta
-            qalter = self.qalter[:]
-            qalter.extend([
-                '-l', 'walltime={}'.format(rectime.total_seconds()), jid])
-            self._run_command(qalter)
+        jid = joblist[0].get('rj_id')
+        if delta:
+            rectime = joblist[0].get('walltime') + delta
+        qalter = self.qalter[:]
+        qalter.extend([
+            '-l', 'walltime={}'.format(rectime.total_seconds()), jid])
+        self._run_command(qalter)
 
-            changed = self.get_job_info(jid)
-            joblist.extend(changed)
-
-        """
-        joblist: [origin, changed]
-        """
-        return joblist
+        return self.get_job_info(jid)
 
     def _change_jobname(self, joblist, name='', ch=''):
         """
