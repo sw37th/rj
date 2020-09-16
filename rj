@@ -474,6 +474,7 @@ def get_args():
     parser_list = subparsers.add_parser('list', help='list JOBs')
     parser_show = subparsers.add_parser('show', help='show JOB information')
     parser_modbegin = subparsers.add_parser('modbegin', help='change JOB start time')
+    parser_modrectime = subparsers.add_parser('modrectime', help='change JOB recording time')
 
     # addサブコマンドの引数設定
     parser_add.add_argument('ch', type=str, help='channel number')
@@ -493,10 +494,15 @@ def get_args():
     parser_modbegin.add_argument('jobid', type=str, help='JOB ID to modify')
     parser_modbegin.add_argument(
         'date', type=str, metavar='date|relative_time',
-        help='airdate, or time from current start time')
+        help='new airdate, or time from current start time')
     parser_modbegin.add_argument('time', type=str, nargs='?',
-        default='', help='airtime (with "date")')
+        default='', help='new airtime (with "date")')
     parser_modbegin.set_defaults(func=modbegin)
+
+    # modrectimeサブコマンドの引数設定
+    parser_modrectime.add_argument('jobid', type=str, help='JOB ID to modify')
+    parser_modrectime.add_argument('rectime', type=str, help='new recording time')
+    parser_modrectime.set_defaults(func=modrectime)
 
     # listサブコマンドの引数設定
     parser_list.add_argument('date', type=str, nargs='?', default='',
@@ -641,6 +647,43 @@ def modbegin(args, rec):
         print('Before')
         print_joblist(joblist, day_change_hour, wormup_sec)
         joblist = rec.change_begin(joblist, delta=delta)
+
+    print('\nAfter')
+    print_joblist(joblist, day_change_hour, wormup_sec)
+
+def modrectime(args, rec):
+    """
+    登録済み録画ジョブの録画時間を再設定する。
+    """
+    jid = args.jobid
+
+    joblist = rec.get_job_info(jid)
+    if not joblist:
+        print('No such JOB ID: {}'.format(jid))
+        sys.exit(1)
+
+    rt = args.rectime
+    m = re.search(r'.*(\+|-)', rt)
+    if m:
+        # 現在の録画時間からの差分で変更
+        delta = cliutil.parse_time_delta(rt)
+        if not delta:
+            print('invalid recording time: {}'.format(rt))
+            sys.exit(1)
+
+        print('Before')
+        print_joblist(joblist, day_change_hour, wormup_sec)
+        joblist = rec.change_rectime(joblist, delta=delta)
+    else:
+        # 指定の録画時間で変更
+        rectime = cliutil.parse_time(rt)
+        if not rectime:
+            print('invalid recording time: {}'.format(rt))
+            sys.exit(1)
+
+        print('Before')
+        print_joblist(joblist, day_change_hour, wormup_sec)
+        joblist = rec.change_rectime(joblist, rectime=rectime)
 
     print('\nAfter')
     print_joblist(joblist, day_change_hour, wormup_sec)
