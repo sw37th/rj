@@ -261,32 +261,26 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         return joblist
 
-    def change_begin(self, jid='', begin=None, delta=None):
+    def change_begin(self, joblist, begin=None, delta=None):
         """
         録画ジョブの開始時刻を指定時刻に変更
-        変更前と変更後のジョブ情報をリストに詰めて返す
+        変更後のジョブ情報を格納したjoblistを返す
 
-        jid:   ジョブID (str)
+        joblist:   変更対象ジョブの格納されたjoblist (list)
+                   複数のジョブ情報が格納されている場合は先頭のみ使用
         begin: 録画開始時刻 (datetime)
         delta: 現在の録画開始時刻との差分 (timedelta)
 
-        begin, deltaが両方指定された場合はdeltaを優先する
+        begin, deltaが両方指定された場合はdeltaが優先される
         """
-        joblist = self.get_job_info(jid)
-        if joblist:
-            if delta:
-                begin = joblist[0].get('rec_begin') + delta
-            qalter = self.qalter[:]
-            qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
-            self._run_command(qalter)
+        jid = joblist[0].get('rj_id')
+        if delta:
+            begin = joblist[0].get('rec_begin') + delta
+        qalter = self.qalter[:]
+        qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
+        self._run_command(qalter)
 
-            changed = self.get_job_info(jid)
-            joblist.extend(changed)
-
-        """
-        joblist: [origin, changed]
-        """
-        return joblist
+        return self.get_job_info(jid)
 
     def change_rectime(self, jid='', rectime=None, delta=None):
         """
