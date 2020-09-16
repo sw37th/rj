@@ -491,9 +491,11 @@ def get_args():
 
     # modbeginサブコマンドの引数設定
     parser_modbegin.add_argument('jobid', type=str, help='JOB ID to modify')
-    parser_modbegin.add_argument('date', type=str, help='date, or deltatime')
+    parser_modbegin.add_argument(
+        'date', type=str, metavar='date|relative_time',
+        help='airdate, or time from current start time')
     parser_modbegin.add_argument('time', type=str, nargs='?',
-        default='', help='time')
+        default='', help='airtime (with "date")')
     parser_modbegin.set_defaults(func=modbegin)
 
     # listサブコマンドの引数設定
@@ -615,8 +617,6 @@ def modbegin(args, rec):
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
 
-    print('Before')
-    print_joblist(joblist, day_change_hour, wormup_sec)
 
     if args.time:
         # 絶対時刻で変更
@@ -626,6 +626,9 @@ def modbegin(args, rec):
         if not begin:
             print('Invalid date time: {} {}'.format(date_, time_))
             sys.exit(1)
+
+        print('Before')
+        print_joblist(joblist, day_change_hour, wormup_sec)
         joblist = rec.change_begin(joblist, begin=begin)
     else:
         # 相対時刻で変更
@@ -634,6 +637,9 @@ def modbegin(args, rec):
         if not delta:
             print('Invalid deltatime: {}'.format(date_))
             sys.exit(1)
+
+        print('Before')
+        print_joblist(joblist, day_change_hour, wormup_sec)
         joblist = rec.change_begin(joblist, delta=delta)
 
     print('\nAfter')
