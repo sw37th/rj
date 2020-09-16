@@ -473,6 +473,7 @@ def get_args():
     parser_del = subparsers.add_parser('del', help='delete JOBs')
     parser_list = subparsers.add_parser('list', help='list JOBs')
     parser_show = subparsers.add_parser('show', help='show JOB information')
+    parser_modbegin = subparsers.add_parser('modbegin', help='change JOB start time')
 
     # addサブコマンドの引数設定
     parser_add.add_argument('ch', type=str, help='channel number')
@@ -487,6 +488,13 @@ def get_args():
     parser_del.add_argument('jobid', type=str, nargs='+',
         help='JOB IDs to delete')
     parser_del.set_defaults(func=del_job)
+
+    # modbeginサブコマンドの引数設定
+    parser_modbegin.add_argument('jobid', type=str, help='JOB ID to modify')
+    parser_modbegin.add_argument('date', type=str, help='date, or deltatime')
+    parser_modbegin.add_argument('time', type=str, nargs='?',
+        default='', help='time')
+    parser_modbegin.set_defaults(func=modbegin)
 
     # listサブコマンドの引数設定
     parser_list.add_argument('date', type=str, nargs='?', default='',
@@ -560,12 +568,16 @@ def show_job(args, rec):
     """
     引数に指定されたIDのジョブを表示する
     """
-    jobinfo = rec.get_job_info(args.jobid)
-    if jobinfo:
-        print_job_information(
-            jobinfo,
-            dateline=day_change_hour,
-            wormup=wormup_sec)
+    jid = args.jobid
+    jobinfo = rec.get_job_info(jid)
+    if not jobinfo:
+        print('No such JOB ID: {}'.format(jid))
+        sys.exit(1)
+
+    print_job_information(
+        jobinfo,
+        dateline=day_change_hour,
+        wormup=wormup_sec)
 
 def del_job(args, rec):
     """
@@ -581,7 +593,7 @@ def del_job(args, rec):
 
     # 引数で渡されたジョブIDのうち、存在しないジョブIDを警告表示
     if not_exist_jobids:
-        print('No such jobid: {}\n'.format(", ".join(not_exist_jobids)))
+        print('No such JOB ID: {}\n'.format(", ".join(not_exist_jobids)))
 
     if delete_jobids:
         # 削除対象ジョブを表示
@@ -591,6 +603,41 @@ def del_job(args, rec):
         # ジョブ削除
         for jid in delete_jobids:
             rec.remove(jid)
+
+def modbegin(args, rec):
+    """
+    登録済み録画ジョブの開始時刻を変更する
+    """
+    jid = args.jobid
+
+    joblist = rec.get_job_info(jid)
+    if not joblist:
+        print('No such JOB ID: {}'.format(jid))
+        sys.exit(1)
+
+    print('Before')
+    print_joblist(joblist, day_change_hour, wormup_sec)
+
+    if args.time:
+        # 絶対時刻で変更
+        date_ = args.date
+        time_ = args.time
+        begin = cliutil.parse_start_time(date_, time_)
+        if not begin:
+            print('Invalid date time: {} {}'.format(date_, time_))
+            sys.exit(1)
+        joblist = rec.change_begin(joblist, begin=begin)
+    else:
+        # 相対時刻で変更
+        date_ = args.date
+        delta = cliutil.parse_time_delta(date_)
+        if not delta:
+            print('Invalid deltatime: {}'.format(date_))
+            sys.exit(1)
+        joblist = rec.change_begin(joblist, delta=delta)
+
+    print('\nAfter')
+    print_joblist(joblist, day_change_hour, wormup_sec)
 
 """
 main_
