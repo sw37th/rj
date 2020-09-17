@@ -131,16 +131,18 @@ class RecordJobOpenpbsTest(TestCase):
             '/work/pbs/bin/qalter', '-a', '202008160005.00', '1']
 
         # 開始時刻時刻指定
-        result = self.rec.change_begin(joblist, begin=begin)
+        result1 = self.rec.change_begin(
+            deepcopy(joblist), begin=begin)
 
         self.rec._run_command.assert_called_with(expected_command)
-        self.assertEqual(result, joblist)
+        self.assertEqual(result1, joblist)
 
         # 元の録画開始時間からの差分指定
-        job_pair = self.rec.change_begin(joblist, delta=delta)
+        result2 = self.rec.change_begin(
+            deepcopy(joblist), delta=delta)
 
         self.rec._run_command.assert_called_with(expected_command_delta)
-        self.assertEqual(result, joblist)
+        self.assertEqual(result2, joblist)
 
     def test_change_rectime(self):
         """
@@ -161,51 +163,48 @@ class RecordJobOpenpbsTest(TestCase):
             '/work/pbs/bin/qalter', '-l', 'walltime=2070.0', '1']
 
         # 録画時間指定
-        result = self.rec.change_rectime(joblist, rectime=rectime)
+        result1 = self.rec.change_rectime(
+            deepcopy(joblist), rectime=rectime)
 
         self.rec._run_command.assert_called_with(expected_command)
-        self.assertEqual(result, joblist)
+        self.assertEqual(result1, joblist)
 
         # 元の録画開始時間からの差分指定
-        result = self.rec.change_rectime(joblist, delta=delta)
+        result2 = self.rec.change_rectime(
+            deepcopy(joblist), delta=delta)
 
         self.rec._run_command.assert_called_with(expected_command_delta)
-        self.assertEqual(result, joblist)
+        self.assertEqual(result2, joblist)
 
     def test_change_jobname(self):
         """
         ジョブ名変更の際のqalterコマンドの引数、戻り値を確認
         """
+        joblist = [{'rj_id': '1', 'rj_title': 'origin', 'channel': '15'}]
         self.rec._run_command = MagicMock()
-        jid = '1'
-        origin_joblist = [{'rj_id': jid, 'rj_title': 'origin', 'channel': '15'}]
+        self.rec.get_job_info = MagicMock(return_value=joblist)
 
-        expected_jobpair = [
-            {'rj_id': jid, 'rj_title': 'origin', 'channel': '15'},
-            {'rj_id': jid, 'rj_title': 'origin', 'channel': '15'}]
+        expected_change_name_command = [
+            '/work/pbs/bin/qalter', '-N', 'changed.15', '1']
 
-        expected_chname_command = [
-            '/work/pbs/bin/qalter', '-N', 'changed.15', jid]
-
-        expected_chch_command = [
-            '/work/pbs/bin/qalter', '-N', 'origin.211', jid]
-
-        self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock(return_value=origin_joblist)
+        expected_change_channel_command = [
+            '/work/pbs/bin/qalter', '-N', 'origin.211', '1']
 
         # 番組名変更
-        job_pair = self.rec._change_jobname(
-            joblist=deepcopy(origin_joblist), name='changed')
+        result1 = self.rec._change_jobname(
+            joblist=deepcopy(joblist), name='changed')
 
-        self.rec._run_command.assert_called_with(expected_chname_command)
-        self.assertEqual(job_pair, expected_jobpair)
+        self.rec._run_command.assert_called_with(
+                expected_change_name_command)
+        self.assertEqual(result1, joblist)
 
         # チャンネル番号変更
-        job_pair = self.rec._change_jobname(
-            joblist=deepcopy(origin_joblist), ch='211')
+        result2 = self.rec._change_jobname(
+            joblist=deepcopy(joblist), ch='211')
 
-        self.rec._run_command.assert_called_with(expected_chch_command)
-        self.assertEqual(job_pair, expected_jobpair)
+        self.rec._run_command.assert_called_with(
+            expected_change_channel_command)
+        self.assertEqual(result2, joblist)
 
     """
     現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
