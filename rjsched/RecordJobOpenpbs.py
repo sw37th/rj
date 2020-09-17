@@ -306,12 +306,19 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
     def _change_jobname(self, joblist, name='', ch=''):
         """
-        "番組名"."チャンネル番号" で構成されるジョブ名を変更する
-        変更前と変更後のジョブ情報をリストに詰めて返す
+        "番組名"."チャンネル番号" で構成されるOpenPBSジョブ名を変更する
+        変更後のジョブ情報を格納したjoblistを返す
 
         joblist:  ジョブリスト (list)
-        name:     変更後の番組名 (str)
-        ch:       変更後のチャンネル番号 (str)
+        name:     新しい番組名 (str)
+        ch:       新しいチャンネル番号 (str)
+
+        FIXME:
+        現在は待機中のジョブのみ対応。
+        録画中ジョブ('record_state': 'Running')の場合はqalterに加えて下記も行う。
+            番組名変更:     mvで録画ファイル名を変更
+            チャンネル変更: mvで録画ファイル名を変更
+                            + recpt1ctlでチューナーのチャンネルを変更
         """
         jid = joblist[0].get('rj_id')
         if not name:
@@ -324,40 +331,26 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             '-N', '{}.{}'.format(name, ch), jid])
         self._run_command(qalter)
 
-        changed = self.get_job_info(jid)
-        joblist.extend(changed)
+        return self.get_job_info(jid)
 
+    def change_channel(self, joblist, ch):
         """
-        joblist: [origin, changed]
-        """
-        return deepcopy(joblist)
-
-    def change_channel(self, jid='', ch=''):
-        """
+        _change_jobname()のラッパー
         録画するチャンネルを変更する
-        変更前と変更後のジョブ情報リストを返す
+        変更後のジョブ情報を格納したjoblistを返す
 
-        jid:  ジョブID (str)
-        ch:   変更後のチャンネル番号 (str)
-        FIXME: 録画中のチャンネルの変更
-
+        joblist: ジョブリスト (list)
+        ch:      新しいチャンネル番号 (str)
         """
-        joblist = self.get_job_info(jid)
-        if joblist:
-            joblist = self._change_jobname(joblist=joblist, ch=ch)
+        return self._change_jobname(joblist=joblist, ch=ch)
 
-        return joblist
-
-    def change_name(self, jid='', name=''):
+    def change_name(self, joblist, name):
         """
+        _change_jobname()のラッパー
         番組名を変更する
-        変更前と変更後のジョブ情報リストを返す
+        変更後のジョブ情報を格納したjoblistを返す
 
-        jid:  ジョブID (str)
-        name:   変更後の番組名 (str)
+        joblist: ジョブリスト (list)
+        name:    新しい番組名 (str)
         """
-        joblist = self.get_job_info(jid)
-        if joblist:
-            joblist = self._change_jobname(joblist=joblist, name=name)
-
-        return joblist
+        return self._change_jobname(joblist=joblist, name=name)
