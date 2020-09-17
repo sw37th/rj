@@ -485,6 +485,8 @@ def get_args():
         'modch', help='change channel of program')
     parser_modname = subparsers.add_parser(
         'modname', help='change title name of program')
+    parser_chlist = subparsers.add_parser(
+        'chlist', help='list TV station name')
 
     # addサブコマンドの引数設定
     parser_add.add_argument('ch', type=str, help='channel number')
@@ -532,6 +534,9 @@ def get_args():
     # showサブコマンドの引数設定
     parser_show.add_argument('jobid', type=str, help="JOB ID")
     parser_show.set_defaults(func=show_job)
+
+    # listサブコマンドの引数設定
+    parser_chlist.set_defaults(func=chlist)
 
     return parser.parse_args()
 
@@ -750,6 +755,16 @@ def modname(args, rec):
 
     print('\nAfter')
     print_joblist(joblist, day_change_hour, wormup_sec)
+
+def chlist(args, rec):
+    """
+    テレビ局名とチャンネル番号の一覧を表示する
+    """
+    chlist = rec.get_channel_list()
+    print('  Ch: TV station name')
+    print(' ---- ----------------')
+    for name, num in sorted(chlist.items(), key=lambda x: x[0]):
+        print('{:>4}: {}'.format(name, num))
 
 """
 main_
