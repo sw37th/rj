@@ -115,7 +115,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         # 同一インスタンスで複数回呼ばれた際に古い情報を返さないよう毎回クリアする
         self.joblist.clear()
         current = datetime.now()
-        chlist = self.get_channel_info()
+        chlist = self.get_channel_list()
 
         proc = self._run_command(self.qstat)
         jobs = json.loads(proc.stdout).get('Jobs', {})

@@ -30,7 +30,7 @@ class RecordJob:
         else:
             return False
 
-    def get_channel_info(self):
+    def get_channel_list(self):
         """
         チャンネル番号と局名の対応表をYAMLファイルから取得して返す
         """
