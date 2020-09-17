@@ -187,7 +187,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         self.joblist = sorted(
             self.joblist, key=lambda x: x['rec_begin'])
 
-    def get_job_info(self, jid=''):
+    def get_job_list(self, jid=''):
         """
         ジョブ情報をリストに詰め、呼び出し元に返す
         下記の引数が指定されている場合はそのジョブ情報のみ抽出する
@@ -244,7 +244,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
                 '-',]
 
         proc = self._run_command(command=qsub, _input=jobexec)
-        return self.get_job_info(proc.stdout.split('.', 1)[0])
+        return self.get_job_list(proc.stdout.split('.', 1)[0])
 
     def remove(self, jid=''):
         """
@@ -253,7 +253,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
 
         削除したジョブ情報のリストを返す
         """
-        joblist = self.get_job_info(jid)
+        joblist = self.get_job_list(jid)
         if joblist:
             qdel = self.qdel[:]
             qdel.append(jid)
@@ -280,7 +280,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         qalter.extend(['-a', begin.strftime('%Y%m%d%H%M.%S'), jid])
         self._run_command(qalter)
 
-        return self.get_job_info(jid)
+        return self.get_job_list(jid)
 
     def change_rectime(self, joblist, rectime=None, delta=None):
         """
@@ -302,7 +302,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             '-l', 'walltime={}'.format(rectime.total_seconds()), jid])
         self._run_command(qalter)
 
-        return self.get_job_info(jid)
+        return self.get_job_list(jid)
 
     def _change_jobname(self, joblist, name='', ch=''):
         """
@@ -331,7 +331,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             '-N', '{}.{}'.format(name, ch), jid])
         self._run_command(qalter)
 
-        return self.get_job_info(jid)
+        return self.get_job_list(jid)
 
     def change_channel(self, joblist, ch):
         """

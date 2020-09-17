@@ -31,7 +31,7 @@ class RecordJobOpenpbsTest(TestCase):
         joblist_origin = [{'rj_id': '68'}]
         proc = MagicMock()
         self.rec._run_command = MagicMock(return_value=proc)
-        self.rec.get_job_info = MagicMock(return_value=joblist_origin)
+        self.rec.get_job_list = MagicMock(return_value=joblist_origin)
 
         # 地上波
         expected_qsub_tt = [
@@ -56,7 +56,7 @@ class RecordJobOpenpbsTest(TestCase):
 
         self.rec._run_command.assert_called_with(
             command=expected_qsub_tt, _input=expected_jobexec_tt)
-        self.rec.get_job_info.assert_called_with('110')
+        self.rec.get_job_list.assert_called_with('110')
         self.assertEqual(joblist, joblist_origin)
 
         # 衛星放送
@@ -82,7 +82,7 @@ class RecordJobOpenpbsTest(TestCase):
 
         self.rec._run_command.assert_called_with(
             command=expected_qsub_tt, _input=expected_jobexec_tt)
-        self.rec.get_job_info.assert_called_with('111')
+        self.rec.get_job_list.assert_called_with('111')
         self.assertEqual(joblist, joblist_origin)
 
     def test_remove(self):
@@ -90,14 +90,14 @@ class RecordJobOpenpbsTest(TestCase):
         ジョブ削除の際のqdelコマンドの引数、戻り値を確認
         """
         self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock()
+        self.rec.get_job_list = MagicMock()
         jid = '1'
 
         # 引数のIDのジョブが存在する
         expected_joblist = [{'rj_id': jid}]
         expected_command = ['/work/pbs/bin/qdel', jid]
 
-        self.rec.get_job_info.return_value = expected_joblist
+        self.rec.get_job_list.return_value = expected_joblist
 
         joblist = self.rec.remove(jid)
         self.rec._run_command.assert_called_with(expected_command)
@@ -107,7 +107,7 @@ class RecordJobOpenpbsTest(TestCase):
         self.rec._run_command.reset_mock()
 
         # 対象のジョブが存在しない場合は_run_command()を呼ばず空リストを返す
-        self.rec.get_job_info.return_value = []
+        self.rec.get_job_list.return_value = []
 
         joblist = self.rec.remove(jid)
         self.rec._run_command.assert_not_called()
@@ -122,7 +122,7 @@ class RecordJobOpenpbsTest(TestCase):
         joblist = [{'rj_id': '1', 'rec_begin': begin}]
 
         self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock(return_value=joblist)
+        self.rec.get_job_list = MagicMock(return_value=joblist)
 
         expected_command = [
             '/work/pbs/bin/qalter', '-a', '202008160000.00', '1']
@@ -151,7 +151,7 @@ class RecordJobOpenpbsTest(TestCase):
         joblist = [{'rj_id': '1', 'walltime': timedelta(seconds=1770)}]
 
         self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock(return_value=joblist)
+        self.rec.get_job_list = MagicMock(return_value=joblist)
 
         rectime = timedelta(seconds=1800)
         delta = timedelta(seconds=300)
@@ -182,7 +182,7 @@ class RecordJobOpenpbsTest(TestCase):
         """
         joblist = [{'rj_id': '1', 'rj_title': 'origin', 'channel': '15'}]
         self.rec._run_command = MagicMock()
-        self.rec.get_job_info = MagicMock(return_value=joblist)
+        self.rec.get_job_list = MagicMock(return_value=joblist)
 
         expected_change_name_command = [
             '/work/pbs/bin/qalter', '-N', 'changed.15', '1']
@@ -424,9 +424,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.rec._fetch_joblist()
         self.assertEqual(self.rec.joblist, joblist_with_notrecjob_expected)
 
-    def test_get_job_info(self):
+    def test_get_job_list(self):
         """
-        get_job_info()の引数に応じたジョブ情報のリストが返ってくることを確認
+        get_job_list()の引数に応じたジョブ情報のリストが返ってくることを確認
         """
         joblist_all = [
             {'rj_id': '69'},
@@ -445,23 +445,23 @@ class RecordJobOpenpbsTest(TestCase):
         self.rec.joblist = joblist_all
 
         # ジョブID指定
-        joblist = self.rec.get_job_info(jid='68')
+        joblist = self.rec.get_job_list(jid='68')
         self.assertEqual(joblist, expected_jid68)
 
-        joblist = self.rec.get_job_info(jid='69')
+        joblist = self.rec.get_job_list(jid='69')
         self.assertEqual(joblist, expected_jid69)
 
-        joblist = self.rec.get_job_info(jid='70')
+        joblist = self.rec.get_job_list(jid='70')
         self.assertEqual(joblist, expected_jid70)
 
-        joblist = self.rec.get_job_info(jid='71')
+        joblist = self.rec.get_job_list(jid='71')
         self.assertEqual(joblist, expected_jid71)
 
-        joblist = self.rec.get_job_info(jid='72')
+        joblist = self.rec.get_job_list(jid='72')
         self.assertEqual(joblist, expected_jid72)
 
         # 指定なし
-        joblist = self.rec.get_job_info()
+        joblist = self.rec.get_job_list()
         self.assertEqual(joblist, joblist_all)
 
     def test_get_tuner_num(self):

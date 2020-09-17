@@ -145,8 +145,8 @@ def add_(args, rec):
         print('Invalid recording time, time: {}'.format(rectime))
         sys.exit(1)
 
-    jobinfo = rec.add(args.ch, args.name, begin, rectime, repeat)
-    print_joblist(jobinfo, day_change_hour, wormup_sec)
+    joblist = rec.add(args.ch, args.name, begin, rectime, repeat)
+    print_joblist(joblist, day_change_hour, wormup_sec)
 
 def list_(args, rec):
     """
@@ -158,22 +158,22 @@ def list_(args, rec):
         if not date_:
             print('invalid DATE:', date_)
             sys.exit(1)
-    jobinfo = rec.get_job_info()
+    joblist = rec.get_job_list()
 
-    print_joblist(jobinfo, day_change_hour, wormup_sec, date_)
+    print_joblist(joblist, day_change_hour, wormup_sec, date_)
 
 def show(args, rec):
     """
     引数に指定されたIDの録画ジョブを表示する
     """
     jid = args.jobid
-    jobinfo = rec.get_job_info(jid)
-    if not jobinfo:
+    joblist = rec.get_job_list(jid)
+    if not joblist:
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
 
     print_job_information(
-        jobinfo,
+        joblist,
         dateline=day_change_hour,
         wormup=wormup_sec)
 
@@ -181,10 +181,10 @@ def del_(args, rec):
     """
     録画ジョブを削除する
     """
-    jobinfo = rec.get_job_info()
+    joblist = rec.get_job_list()
 
     # 引数で渡されたジョブIDのうち、存在するジョブのみ削除対象として抽出
-    delete_jobs = [i for i in jobinfo if i.get('rj_id') in args.jobid]
+    delete_jobs = [i for i in joblist if i.get('rj_id') in args.jobid]
 
     delete_jobids = set([i.get('rj_id') for i in delete_jobs])
     not_exist_jobids = set(args.jobid) - delete_jobids
@@ -195,7 +195,7 @@ def del_(args, rec):
 
     if delete_jobids:
         # 削除対象ジョブを表示
-        print('REMOVE JOB:')
+        print('Delete JOB:')
         print_joblist(delete_jobs, day_change_hour, wormup_sec)
 
         # ジョブ削除
@@ -208,7 +208,7 @@ def modbegin(args, rec):
     """
     jid = args.jobid
 
-    joblist = rec.get_job_info(jid)
+    joblist = rec.get_job_list(jid)
     if not joblist:
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
@@ -247,7 +247,7 @@ def modrectime(args, rec):
     """
     jid = args.jobid
 
-    joblist = rec.get_job_info(jid)
+    joblist = rec.get_job_list(jid)
     if not joblist:
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
@@ -288,7 +288,7 @@ def modch(args, rec):
         print('invalid channel number: {}'.format(ch))
         sys.exit(1)
 
-    joblist = rec.get_job_info(jid)
+    joblist = rec.get_job_list(jid)
     if not joblist:
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
@@ -308,7 +308,7 @@ def modname(args, rec):
     jid = args.jobid
     name = args.name
 
-    joblist = rec.get_job_info(jid)
+    joblist = rec.get_job_list(jid)
     if not joblist:
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
@@ -334,7 +334,7 @@ def chlist(args, rec):
 """
 ジョブ表示用関数
 """
-def print_joblist(jobinfo, dateline=0, wormup=0, date=None):
+def print_joblist(joblist, dateline=0, wormup=0, date=None):
     """
     ジョブの配列を受け取り一覧表示する
     """
@@ -350,8 +350,8 @@ def print_joblist(jobinfo, dateline=0, wormup=0, date=None):
         # 指定された日に録画を開始するジョブの情報のみ抽出
         date_begin = datetime(date.year, date.month, date.day, dateline)
         date_end = date_begin + timedelta(days=1)
-        jobinfo = [
-            i for i in jobinfo
+        joblist = [
+            i for i in joblist
                 if i['rec_begin'] >= date_begin and i['rec_begin'] < date_end]
 
     print(
@@ -359,7 +359,7 @@ def print_joblist(jobinfo, dateline=0, wormup=0, date=None):
         'Start           walltime rep tuner')
 
     prev_wday = ''
-    for j in jobinfo:
+    for j in joblist:
         # 表示用に録画開始時刻マージン分を加算
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
 
@@ -409,11 +409,11 @@ def print_joblist(jobinfo, dateline=0, wormup=0, date=None):
             state,
             elapse))
 
-def print_job_information(jobinfo, dateline=0, wormup=0):
+def print_job_information(joblist, dateline=0, wormup=0):
     """
     ジョブの配列を受け取り詳細情報を表示する
     """
-    for j in jobinfo:
+    for j in joblist:
         # 表示用に録画開始時刻マージン分を加算
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
         end = j.get('rec_end') + timedelta(seconds=wormup)
