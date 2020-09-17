@@ -65,12 +65,12 @@ def get_args():
     parser_add.add_argument('time', type=str, help='airtime')
     parser_add.add_argument('rectime', type=str, nargs='?',
         default=default_rectime, help='recording time')
-    parser_add.set_defaults(func=add_job)
+    parser_add.set_defaults(func=add_)
 
     # delサブコマンドの引数設定
     parser_del.add_argument('jobid', type=str, nargs='+',
         help='JOB IDs to delete')
-    parser_del.set_defaults(func=del_job)
+    parser_del.set_defaults(func=del_)
 
     # modbeginサブコマンドの引数設定
     parser_modbegin.add_argument('jobid', type=str, help='JOB ID to modify')
@@ -99,11 +99,11 @@ def get_args():
     # listサブコマンドの引数設定
     parser_list.add_argument('date', type=str, nargs='?', default='',
         help='airdate')
-    parser_list.set_defaults(func=list_job)
+    parser_list.set_defaults(func=list_)
 
     # showサブコマンドの引数設定
     parser_show.add_argument('jobid', type=str, help="JOB ID")
-    parser_show.set_defaults(func=show_job)
+    parser_show.set_defaults(func=show)
 
     # listサブコマンドの引数設定
     parser_chlist.set_defaults(func=chlist)
@@ -113,7 +113,7 @@ def get_args():
 """
 引数ごとの処理
 """
-def add_job(args, rec):
+def add_(args, rec):
     """
     録画ジョブを追加する
     """
@@ -148,7 +148,7 @@ def add_job(args, rec):
     jobinfo = rec.add(args.ch, args.name, begin, rectime, repeat)
     print_joblist(jobinfo, day_change_hour, wormup_sec)
 
-def list_job(args, rec):
+def list_(args, rec):
     """
     スケジュールされた録画ジョブを一覧表示する
     """
@@ -162,7 +162,7 @@ def list_job(args, rec):
 
     print_joblist(jobinfo, day_change_hour, wormup_sec, date_)
 
-def show_job(args, rec):
+def show(args, rec):
     """
     引数に指定されたIDの録画ジョブを表示する
     """
@@ -177,7 +177,7 @@ def show_job(args, rec):
         dateline=day_change_hour,
         wormup=wormup_sec)
 
-def del_job(args, rec):
+def del_(args, rec):
     """
     録画ジョブを削除する
     """
