@@ -469,13 +469,22 @@ def get_args():
     subparsers = parser.add_subparsers()
 
     # セカンドレベルパーサーからサブコマンドを生成
-    parser_add = subparsers.add_parser('add', help='add TV recording JOB')
-    parser_del = subparsers.add_parser('del', help='delete JOBs')
-    parser_list = subparsers.add_parser('list', help='list JOBs')
-    parser_show = subparsers.add_parser('show', help='show JOB information')
-    parser_modbegin = subparsers.add_parser('modbegin', help='change start time')
-    parser_modrectime = subparsers.add_parser('modrectime', help='change recording time')
-    parser_modch = subparsers.add_parser('modch', help='change recording channel')
+    parser_add = subparsers.add_parser(
+        'add', help='add TV recording JOB')
+    parser_del = subparsers.add_parser(
+        'del', help='delete JOBs')
+    parser_list = subparsers.add_parser(
+        'list', help='list JOBs')
+    parser_show = subparsers.add_parser(
+        'show', help='show JOB information')
+    parser_modbegin = subparsers.add_parser(
+        'modbegin', help='change start time')
+    parser_modrectime = subparsers.add_parser(
+        'modrectime', help='change recording time')
+    parser_modch = subparsers.add_parser(
+        'modch', help='change channel of program')
+    parser_modname = subparsers.add_parser(
+        'modname', help='change title name of program')
 
     # addサブコマンドの引数設定
     parser_add.add_argument('ch', type=str, help='channel number')
@@ -507,8 +516,13 @@ def get_args():
 
     # modchサブコマンドの引数設定
     parser_modch.add_argument('jobid', type=str, help='JOB ID to modify')
-    parser_modch.add_argument('ch', type=str, help='new recording channel')
+    parser_modch.add_argument('ch', type=str, help='new channel number')
     parser_modch.set_defaults(func=modch)
+
+    # modnameサブコマンドの引数設定
+    parser_modname.add_argument('jobid', type=str, help='JOB ID to modify')
+    parser_modname.add_argument('name', type=str, help='new title name')
+    parser_modname.set_defaults(func=modname)
 
     # listサブコマンドの引数設定
     parser_list.add_argument('date', type=str, nargs='?', default='',
@@ -580,7 +594,7 @@ def list_job(args, rec):
 
 def show_job(args, rec):
     """
-    引数に指定されたIDのジョブを表示する
+    引数に指定されたIDの録画ジョブを表示する
     """
     jid = args.jobid
     jobinfo = rec.get_job_info(jid)
@@ -620,7 +634,7 @@ def del_job(args, rec):
 
 def modbegin(args, rec):
     """
-    登録済み録画ジョブの開始時刻を変更する
+    録画ジョブの録画開始時刻を変更する
     """
     jid = args.jobid
 
@@ -659,7 +673,7 @@ def modbegin(args, rec):
 
 def modrectime(args, rec):
     """
-    登録済み録画ジョブの録画時間を再設定する。
+    録画ジョブの録画時間を変更する。
     """
     jid = args.jobid
 
@@ -695,16 +709,44 @@ def modrectime(args, rec):
     print_joblist(joblist, day_change_hour, wormup_sec)
 
 def modch(args, rec):
+    """
+    録画ジョブのチャンネル番号を変更する。
+    """
     jid = args.jobid
     ch = args.ch
     if not ch.encode('utf-8').isdigit():
         print('invalid channel number: {}'.format(ch))
         sys.exit(1)
+
     joblist = rec.get_job_info(jid)
+    if not joblist:
+        print('No such JOB ID: {}'.format(jid))
+        sys.exit(1)
+
     print('Before')
     print_joblist(joblist, day_change_hour, wormup_sec)
 
     joblist = rec.change_channel(joblist, ch)
+
+    print('\nAfter')
+    print_joblist(joblist, day_change_hour, wormup_sec)
+
+def modname(args, rec):
+    """
+    録画ジョブの番組名を変更する。
+    """
+    jid = args.jobid
+    name = args.name
+
+    joblist = rec.get_job_info(jid)
+    if not joblist:
+        print('No such JOB ID: {}'.format(jid))
+        sys.exit(1)
+
+    print('Before')
+    print_joblist(joblist, day_change_hour, wormup_sec)
+
+    joblist = rec.change_name(joblist, name)
 
     print('\nAfter')
     print_joblist(joblist, day_change_hour, wormup_sec)
