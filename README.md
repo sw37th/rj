@@ -13,49 +13,49 @@ rjはLinuxでのTV録画予約用コマンドラインスクリプトです。
 NOTE: チューナーデバイスのドライバとrecpt1コマンドのセットアップは完了しているものとします。
 
 GitHubのリポジトリからcloneします。
-```bash
-git clone https://github.com/sw37th/rj.git
+```
+$ git clone https://github.com/sw37th/rj.git
 ```
 
 依存するPythonライブラリをインストールします。今のところ、rjはPyYAMLを使用します。
-```bash
-sudo apt install python3-yaml
+```
+$ sudo apt install python3-yaml
 ```
 
 ## Set up
 
 ### スケジューラーにSystemdを使用する場合
 
-~/.config/systemd/userディレクトリが存在しない場合は作成します。
-```bash
-mkdir -m 700 ~/.config
-mkdir -m 755 ~/.config/{systemd,systemd/user}
+`~/.config/systemd/user`ディレクトリが存在しない場合は作成します。
+```
+$ mkdir -m 700 ~/.config
+$ mkdir -m 755 ~/.config/{systemd,systemd/user}
 ```
 
-NOTE: ~/.configディレクトリは次回ログイン時から利用できます。一旦ログアウトし、再ログインしてください。
+NOTE: `~/.config`ディレクトリは次回ログイン時から利用できます。一旦ログアウトし、再ログインしてください。
 
 ### 全スケジューラー共通
 
-~/.rjディレクトリを作成し、channel.ymlファイルを配置します。
-```bash
-mkdir ~/.rj
-cp rj/channel.yml ~/.rj
+`~/.rj`ディレクトリを作成し、`channel.yml`ファイルを配置します。
+```
+$ mkdir ~/.rj
+$ cp rj/channel.yml ~/.rj
 ```
 
-~/.rj/channel.ymlを編集し、お住いの地域の物理チャンネル番号とテレビ局名に変更します。
+`~/.rj/channel.yml`を編集し、お住いの地域の物理チャンネル番号とテレビ局名に変更します。
 ( https://ja.wikipedia.org/wiki/テレビ周波数チャンネル )
-```bash
-vi ~/.rj/channel.yml
+```
+$ vi ~/.rj/channel.yml
 ```
 
-~/recディレクトリを作成します。録画ファイルはこのディレクトリに作成されます。
-```bash
-mkdir ~/rec
+`~/rec`ディレクトリを作成します。録画ファイルはこのディレクトリに作成されます。
+```
+$ mkdir ~/rec
 ```
 
 ## Usage
 
-```bash
+```
 usage: rj [-h]
           {add,del,list,show,modbegin,modrectime,modch,modname,chlist} ...
 
@@ -77,8 +77,8 @@ optional arguments:
 
 ### 録画予約の作成
 
-rj addで録画を予約します。
-```bash
+`rj add`で録画を予約します。
+```
 usage: rj add [-h] ch name date time [rectime]
 
 positional arguments:
@@ -89,14 +89,14 @@ positional arguments:
   rectime     recording time
 ```
 例えば月曜日の26:30から15分間、BS11(211チャンネル)にて放送される「ヤマノススメ サードシーズン」を録画する場合、
-```bash
-./rj add 211    yamanosusume_3rd  Mon  26:30 00:15:00
+```
+$ ./rj add 211    yamanosusume_3rd  Mon  26:30 00:15:00
 ```
 
 ### 予約確認
 
-rj listで録画予約を一覧表示します。
-```bash
+`rj list`で録画予約を一覧表示します。
+```
 usage: rj list [-h] [date]
 
 positional arguments:
@@ -105,7 +105,7 @@ positional arguments:
 
 デフォルトではすべての録画予約が表示されます。
 
-```bash
+```
 $ ./rj list
 ID    Channel        Title                    Start           Rectime  User     Tuner
 ----- -------------- ------------------------ --------------- -------- -------- -----
@@ -119,7 +119,7 @@ ID    Channel        Title                    Start           Rectime  User     
 
 日付や曜日指定もできます。
 
-```bash
+```
 $ ./rj list 9/22
 ID    Channel        Title                    Start           Rectime  User     Tuner
 ----- -------------- ------------------------ --------------- -------- -------- -----
@@ -132,9 +132,9 @@ ID    Channel        Title                    Start           Rectime  User     
 261   211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00 autumn   bs
 ```
 
-rj delで録画予約を削除します。
+`rj del`で録画予約を削除します。
 
-```bash
+```
 $ ./rj del 262
 Delete JOB:
 ID    Channel        Title                    Start           Rectime  User     Tuner
