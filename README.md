@@ -107,29 +107,29 @@ positional arguments:
 
 ```bash
 $ ./rj list
-ID       Ch             Title                    Start           walltime rep tuner
--------- -------------- ------------------------ --------------- -------- --- -----
-258       15 MX         yurukyan                 Mon 09/21 22:30 00:29:30     tt
-261      211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00     bs
--------- -------------- ------------------------ --------------- -------- --- -----
-260       15 MX         hokago_teibounisshi      Tue 09/22 24:30 00:29:30     tt
--------- -------------- ------------------------ --------------- -------- --- -----
-259       15 MX         rezero_2nd               Wed 09/23 23:30 00:29:30     tt
+ID    Channel        Title                    Start           Rectime  User     Tuner
+----- -------------- ------------------------ --------------- -------- -------- -----
+258   15  MX         yurukyan                 Mon 09/21 22:30 00:29:30 autumn   tt
+261   211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00 autumn   bs
+----- -------------- ------------------------ --------------- -------- -------- -----
+260   15  MX         hokago_teibounisshi      Tue 09/22 24:30 00:29:30 autumn   tt
+----- -------------- ------------------------ --------------- -------- -------- -----
+259   15  MX         rezero_2nd               Wed 09/23 23:30 00:29:30 autumn   tt
 ```
 
-日付指定もできます。
+日付や曜日指定もできます。
 
 ```bash
-$ ./rj list Mon
-ID       Ch             Title                    Start           walltime rep tuner
--------- -------------- ------------------------ --------------- -------- --- -----
-258       15 MX         yurukyan                 Mon 09/21 22:30 00:29:30     tt
-261      211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00     bs
-
 $ ./rj list 9/22
-ID       Ch             Title                    Start           walltime rep tuner
--------- -------------- ------------------------ --------------- -------- --- -----
-260       15 MX         hokago_teibounisshi      Tue 09/22 24:30 00:29:30     tt
+ID    Channel        Title                    Start           Rectime  User     Tuner
+----- -------------- ------------------------ --------------- -------- -------- -----
+260   15  MX         hokago_teibounisshi      Tue 09/22 24:30 00:29:30 autumn   tt
+
+$ ./rj list Mon
+ID    Channel        Title                    Start           Rectime  User     Tuner
+----- -------------- ------------------------ --------------- -------- -------- -----
+258   15  MX         yurukyan                 Mon 09/21 22:30 00:29:30 autumn   tt
+261   211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00 autumn   bs
 ```
 
 rj delで録画予約を削除します。
@@ -137,7 +137,7 @@ rj delで録画予約を削除します。
 ```bash
 $ ./rj del 262
 Delete JOB:
-ID       Ch             Title                    Start           walltime rep tuner
--------- -------------- ------------------------ --------------- -------- --- -----
-262       15 MX         gibiate                  Wed 09/23 22:00 00:29:30     tt
+ID    Channel        Title                    Start           Rectime  User     Tuner
+----- -------------- ------------------------ --------------- -------- -------- -----
+262   15  MX         gibiate                  Wed 09/23 22:00 00:29:30 autumn   tt
 ```
