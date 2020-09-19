@@ -132,6 +132,8 @@ ID    Channel        Title                    Start           Rectime  User     
 261   211 BS11       yamanosusume_3rd         Mon 09/21 26:30 00:15:00 autumn   bs
 ```
 
+### 予約削除
+
 `rj del`で録画予約を削除します。
 
 ```
