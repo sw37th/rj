@@ -4,7 +4,7 @@ rjはLinuxでのTV録画予約用コマンドラインスクリプトです。
 
 * [OpenPBS](https://www.openpbs.org/)
 * [systemd timer](https://www.freedesktop.org/software/systemd/man/systemd.timer.html)
-* [TORQUE Resource Manager](http://www.adaptivecomputing.com/products/torque/)
+* [TORQUE Resource Manager](https://github.com/adaptivecomputing/torque)
 
 実行にはPython 3.6以降が必要です。
 
