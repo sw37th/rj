@@ -117,12 +117,6 @@ def add_(args, rec):
     """
     録画ジョブを追加する
     """
-    #if args.get('--repeat'):
-    #    repeat = args.get('--repeat')[0]
-    #else:
-    #    repeat = ''
-    repeat = ''
-
     # 引数チェック(チャンネル)
     if not args.ch.isdecimal():
         print('invalid Channel: {}'.format(ch))
@@ -145,7 +139,7 @@ def add_(args, rec):
         print('Invalid recording time, time: {}'.format(rectime))
         sys.exit(1)
 
-    joblist = rec.add(args.ch, args.name, begin, rectime, repeat)
+    joblist = rec.add(args.ch, args.name, begin, rectime)
     print_joblist(joblist, day_change_hour, wormup_sec)
 
 def list_(args, rec):
@@ -338,13 +332,26 @@ def print_joblist(joblist, dateline=0, wormup=0, date=None):
     """
     ジョブの配列を受け取り一覧表示する
     """
-    repeat_state = {
-        'WEEKLY':  'W',
-        'DAILY':   'D',
-        'WEEKDAY': 'Wd',
-        'ASADORA': 'A',
-        'ONESHOT': '',
-    }
+    tmpl_header = '{_id:5} {_channel:14} {_title:24} {_start:15} '\
+        '{_rectime:8} {_user:8} {_tuner:5}'
+    header = tmpl_header.format(
+        _id='ID',
+        _channel='Channel',
+        _title='Title',
+        _start='Start',
+        _rectime='Rectime',
+        _user='User',
+        _tuner='Tuner')
+    hr = tmpl_header.format(
+        _id='-'*5,
+        _channel='-'*14,
+        _title='-'*24,
+        _start='-'*15,
+        _rectime='-'*8,
+        _user='-'*8,
+        _tuner='-'*5)
+    tmpl = '{_id:5} {_ch:3} {_chname:10} {_title:24} {_start:15} '\
+        '{_rectime:8} {_user:8} {_tuner:5} {_state} {_elapse}'
 
     if date:
         # 指定された日に録画を開始するジョブの情報のみ抽出
@@ -354,9 +361,7 @@ def print_joblist(joblist, dateline=0, wormup=0, date=None):
             i for i in joblist
                 if i['rec_begin'] >= date_begin and i['rec_begin'] < date_end]
 
-    print(
-        'ID       Ch             Title                    '\
-        'Start           walltime rep tuner')
+    print(header)
 
     prev_wday = ''
     for j in joblist:
@@ -368,10 +373,7 @@ def print_joblist(joblist, dateline=0, wormup=0, date=None):
         wday = starttime.split()[0]
 
         if wday != prev_wday:
-            print(
-                '-------- -------------- ------------------------ '\
-                '--------------- -------- --- -----'
-            )
+            print(hr)
             prev_wday = wday
 
         # ジョブのチャンネル番号を元に対応する局名を取得
@@ -395,19 +397,17 @@ def print_joblist(joblist, dateline=0, wormup=0, date=None):
         if j.get('alert'):
             state = ' '.join((j.get('alert'), state))
 
-        repeat = j.get('repeat', 'ONESHOT')
-
-        print('{:8} {:>3} {:10} {:24} {} {} {:3} {:5} {} {}'.format(
-            j.get('rj_id', ''),
-            chnum,
-            chname,
-            j.get('rj_title', ''),
-            starttime,
-            walltime,
-            repeat_state[repeat],
-            j.get('tuner', ''),
-            state,
-            elapse))
+        print(tmpl.format(
+            _id=j.get('rj_id', ''),
+            _ch=chnum,
+            _chname=chname,
+            _title=j.get('rj_title', ''),
+            _start=starttime,
+            _rectime=walltime,
+            _user=j.get('user', ''),
+            _tuner=j.get('tuner', ''),
+            _state=state,
+            _elapse=elapse))
 
 def print_job_information(joblist, dateline=0, wormup=0):
     """
