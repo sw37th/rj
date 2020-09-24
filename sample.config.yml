@@ -1,0 +1,29 @@
+#### スケジューラー選択
+#scheduler: torque
+#scheduler: systemd
+scheduler: openpbs
+
+#### rjsched設定
+# recpt1コマンドのパス
+recpt1_path: /usr/local/bin/recpt1
+recpt1ctl_path: /usr/local/bin/recpt1ctl
+
+# 録画ファイル出力先ディレクトリ
+recdir: /home/autumn/rec
+
+# チャンネル情報ファイル(YAML)
+channel_file: /home/autumn/work/rj/channel.yml
+
+#### CLI設定
+# 一日の基準時刻(時)
+# 当日の基準時刻から翌日の基準時刻-1secまでを同一日とみなす。
+# 例えばday_change_hour: 5の場合、05:00:00-28:59:59が同一日となる。
+day_change_hour: 5
+
+# 録画開始のマージン
+# ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため、
+# 指定時刻よりwormup_sec秒だけ早くジョブを開始する。
+wormup_sec: 30
+
+# デフォルトの録画時間(秒)
+default_rectime: 00:29:30
