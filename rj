@@ -63,7 +63,7 @@ def get_args():
     parser_add.add_argument('date', type=str, help='airdate')
     parser_add.add_argument('time', type=str, help='airtime')
     parser_add.add_argument('rectime', type=str, nargs='?',
-        default='', help='recording time')
+        help='recording time')
     parser_add.set_defaults(func=add_)
 
     # delサブコマンドの引数設定
@@ -77,7 +77,7 @@ def get_args():
         'date', type=str, metavar='date|relative_time',
         help='new airdate, or time from current start time')
     parser_modbegin.add_argument('time', type=str, nargs='?',
-        default='', help='new airtime (with "date")')
+        help='new airtime (with "date")')
     parser_modbegin.set_defaults(func=modbegin)
 
     # modrectimeサブコマンドの引数設定
