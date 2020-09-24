@@ -6,27 +6,26 @@ from datetime import datetime, timedelta
 import argparse
 import cliutil
 import importlib
+import os
 import rjsched
 import re
 import sys
-import time
+import yaml
 
-# day_change_hour: 一日の基準時刻(時)
-# 当日の基準時刻から翌日の基準時刻-1secまでを同一日とみなす。
-# day_change_hour=5の場合、05:00:00-28:59:59が同一日。
-day_change_hour = 5
-
-# wormup_sec: 録画開始のマージン
-# ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため
-# 指定時刻よりwormup_sec秒だけ早くジョブを開始する。
-wormup_sec = 30
-
-# default_rectime: デフォルトの録画時間
-default_rectime = '00:29:30'
-
-#scheduler = "Torque"
-#scheduler = "Systemd"
-scheduler = "Openpbs"
+"""
+設定読み込み
+"""
+def load_config():
+    """
+    '~/.rj/config.yml'から設定を読み込む
+    """
+    try:
+        with open(os.path.expanduser('~/.rj/config.yml')) as f:
+            config = yaml.load(f)
+    except (PermissionError, FileNotFoundError, yaml.YAMLError) as err:
+        print('config.yml cannot load: {}'.format(err))
+        sys.exit(1)
+    return config
 
 """
 引数の解析
@@ -64,7 +63,7 @@ def get_args():
     parser_add.add_argument('date', type=str, help='airdate')
     parser_add.add_argument('time', type=str, help='airtime')
     parser_add.add_argument('rectime', type=str, nargs='?',
-        default=default_rectime, help='recording time')
+        default='', help='recording time')
     parser_add.set_defaults(func=add_)
 
     # delサブコマンドの引数設定
@@ -97,8 +96,7 @@ def get_args():
     parser_modname.set_defaults(func=modname)
 
     # listサブコマンドの引数設定
-    parser_list.add_argument('date', type=str, nargs='?', default='',
-        help='airdate')
+    parser_list.add_argument('date', type=str, nargs='?', help='airdate')
     parser_list.set_defaults(func=list_)
 
     # showサブコマンドの引数設定
@@ -113,10 +111,13 @@ def get_args():
 """
 引数ごとの処理
 """
-def add_(args, rec):
+def add_(args, rec, config):
     """
     録画ジョブを追加する
     """
+    wormup_sec = config.get('wormup_sec')
+    day_change_hour = config.get('day_change_hour')
+
     # 引数チェック(チャンネル)
     if not args.ch.isdecimal():
         print('invalid Channel: {}'.format(ch))
@@ -134,18 +135,23 @@ def add_(args, rec):
         sys.exit(1)
 
     # 引数チェック(録画時間)
-    rectime = cliutil.parse_time(args.rectime)
+    if args.rectime:
+        rectime = cliutil.parse_time(args.rectime)
+    else:
+        rectime = cliutil.parse_time(str(config.get('default_rectime', '')))
+
     if not rectime:
         print('Invalid recording time, time: {}'.format(rectime))
         sys.exit(1)
 
     joblist = rec.add(args.ch, args.name, begin, rectime)
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
-def list_(args, rec):
+def list_(args, rec, config):
     """
     スケジュールされた録画ジョブを一覧表示する
     """
+    day_change_hour = config.get('day_change_hour')
     date_ = None
     if args.date:
         date_ = cliutil.parse_date(args.date, day_change_hour)
@@ -154,9 +160,9 @@ def list_(args, rec):
             sys.exit(1)
     joblist = rec.get_job_list()
 
-    print_joblist(joblist, day_change_hour, wormup_sec, date_)
+    print_joblist(joblist, config, date_)
 
-def show(args, rec):
+def show(args, rec, config):
     """
     引数に指定されたIDの録画ジョブを表示する
     """
@@ -166,12 +172,9 @@ def show(args, rec):
         print('No such JOB ID: {}'.format(jid))
         sys.exit(1)
 
-    print_job_information(
-        joblist,
-        dateline=day_change_hour,
-        wormup=wormup_sec)
+    print_job_information(joblist, config)
 
-def del_(args, rec):
+def del_(args, rec, config):
     """
     録画ジョブを削除する
     """
@@ -190,13 +193,13 @@ def del_(args, rec):
     if delete_jobids:
         # 削除対象ジョブを表示
         print('Delete JOB:')
-        print_joblist(delete_jobs, day_change_hour, wormup_sec)
+        print_joblist(delete_jobs, config)
 
         # ジョブ削除
         for jid in delete_jobids:
             rec.remove(jid)
 
-def modbegin(args, rec):
+def modbegin(args, rec, config):
     """
     録画ジョブの録画開始時刻を変更する
     """
@@ -218,7 +221,7 @@ def modbegin(args, rec):
             sys.exit(1)
 
         print('Before')
-        print_joblist(joblist, day_change_hour, wormup_sec)
+        print_joblist(joblist, config)
         joblist = rec.change_begin(joblist, begin=begin)
     else:
         # 相対時刻で変更
@@ -229,13 +232,13 @@ def modbegin(args, rec):
             sys.exit(1)
 
         print('Before')
-        print_joblist(joblist, day_change_hour, wormup_sec)
+        print_joblist(joblist, config)
         joblist = rec.change_begin(joblist, delta=delta)
 
     print('\nAfter')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
-def modrectime(args, rec):
+def modrectime(args, rec, config):
     """
     録画ジョブの録画時間を変更する。
     """
@@ -256,7 +259,7 @@ def modrectime(args, rec):
             sys.exit(1)
 
         print('Before')
-        print_joblist(joblist, day_change_hour, wormup_sec)
+        print_joblist(joblist, config)
         joblist = rec.change_rectime(joblist, delta=delta)
     else:
         # 指定の録画時間で変更
@@ -266,13 +269,13 @@ def modrectime(args, rec):
             sys.exit(1)
 
         print('Before')
-        print_joblist(joblist, day_change_hour, wormup_sec)
+        print_joblist(joblist, config)
         joblist = rec.change_rectime(joblist, rectime=rectime)
 
     print('\nAfter')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
-def modch(args, rec):
+def modch(args, rec, config):
     """
     録画ジョブのチャンネル番号を変更する。
     """
@@ -288,14 +291,14 @@ def modch(args, rec):
         sys.exit(1)
 
     print('Before')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
     joblist = rec.change_channel(joblist, ch)
 
     print('\nAfter')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
-def modname(args, rec):
+def modname(args, rec, config):
     """
     録画ジョブの番組名を変更する。
     """
@@ -308,14 +311,14 @@ def modname(args, rec):
         sys.exit(1)
 
     print('Before')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
     joblist = rec.change_name(joblist, name)
 
     print('\nAfter')
-    print_joblist(joblist, day_change_hour, wormup_sec)
+    print_joblist(joblist, config)
 
-def chlist(args, rec):
+def chlist(args, rec, config):
     """
     テレビ局名とチャンネル番号の一覧を表示する
     """
@@ -328,10 +331,12 @@ def chlist(args, rec):
 """
 ジョブ表示用関数
 """
-def print_joblist(joblist, dateline=0, wormup=0, date=None):
+def print_joblist(joblist, config, date=None):
     """
     ジョブの配列を受け取り一覧表示する
     """
+    dateline = config.get('day_change_hour', 0)
+    wormup = config.get('wormup_sec', 0)
     tmpl_header = '{_id:5} {_channel:14} {_title:24} {_start:15} '\
         '{_rectime:8} {_user:8} {_tuner:5}'
     header = tmpl_header.format(
@@ -409,10 +414,12 @@ def print_joblist(joblist, dateline=0, wormup=0, date=None):
             _state=state,
             _elapse=elapse))
 
-def print_job_information(joblist, dateline=0, wormup=0):
+def print_job_information(joblist, config):
     """
     ジョブの配列を受け取り詳細情報を表示する
     """
+    dateline = config.get('day_change_hour', 0)
+    wormup = config.get('wormup_sec', 0)
     for j in joblist:
         # 表示用に録画開始時刻マージン分を加算
         begin = j.get('rec_begin') + timedelta(seconds=wormup)
@@ -509,11 +516,14 @@ def eval_dateline(time, dateline):
 main
 """
 def main():
-    mdl = importlib.import_module('rjsched.RecordJob' + scheduler)
-    cls = getattr(mdl, 'RecordJob' + scheduler.capitalize())
-    rec = cls()
+    config = load_config()
+
+    schedtype = config.get('scheduler').capitalize()
+    module_ = importlib.import_module('rjsched.RecordJob' + schedtype)
+    class_ = getattr(module_, 'RecordJob' + schedtype)
+    rec = class_()
 
     args = get_args()
-    args.func(args, rec)
+    args.func(args, rec, config)
 
 main()
