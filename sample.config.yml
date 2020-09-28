@@ -3,7 +3,7 @@
 #scheduler: systemd
 scheduler: openpbs
 
-#### rjsched設定
+#### rjsched設定(共通設定)
 # recpt1コマンドのパス
 recpt1_path: /usr/local/bin/recpt1
 recpt1ctl_path: /usr/local/bin/recpt1ctl
@@ -12,7 +12,14 @@ recpt1ctl_path: /usr/local/bin/recpt1ctl
 recdir: /home/autumn/rec
 
 # チャンネル情報ファイル(YAML)
-channel_file: /home/autumn/work/rj/channel.yml
+channel_file: /home/autumn/.rj/channel.yml
+
+#### rjsched設定(スケジューラー固有設定)
+## OpenPBS
+pbsexec_dir: /work/pbs/bin
+
+# ジョブ実行ログ出力先
+joblog_dir: /home/autumn/log
 
 #### CLI設定
 # 一日の基準時刻(時)
