@@ -9,16 +9,16 @@ import rjsched
 import sys
 
 class RecordJobOpenpbs(rjsched.RecordJob):
-    def __init__(self):
-        super().__init__()
-        pbsexec = '/work/pbs/bin/'
+    def __init__(self, config):
+        super().__init__(config)
         self.name = 'RecordJobOpenpbs'
-        self.qstat = [pbsexec + 'qstat', '-f', '-F', 'json']
-        self.pbsnodes = [pbsexec + 'pbsnodes', '-a', '-F', 'json']
-        self.qsub = [pbsexec + 'qsub']
-        self.qdel = [pbsexec + 'qdel']
-        self.qalter = [pbsexec + 'qalter']
-        self.logdir = '/home/autumn/log'
+        pbsexec = config.get('pbsexec_dir')
+        self.logdir = config.get('joblog_dir')
+        self.qstat = [pbsexec + '/qstat', '-f', '-F', 'json']
+        self.pbsnodes = [pbsexec + '/pbsnodes', '-a', '-F', 'json']
+        self.qsub = [pbsexec + '/qsub']
+        self.qdel = [pbsexec + '/qdel']
+        self.qalter = [pbsexec + '/qalter']
         self.joblist = []
 
     def __str__(self):

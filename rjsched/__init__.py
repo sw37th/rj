@@ -1,13 +1,13 @@
 import yaml
 
 class RecordJob:
-    def __init__(self):
-        recpt1_path = '/usr/local/bin/recpt1'
-        recpt1ctl_path = '/usr/local/bin/recpt1ctl'
+    def __init__(self, config):
+        recpt1_path = config.get('recpt1_path')
+        recpt1ctl_path = config.get('recpt1ctl_path')
+        self.recdir = config.get('recdir')
+        self.channel_file = config.get('channel_file')
         self.recpt1 = [recpt1_path, '--b25', '--strip']
         self.recpt1ctl = [recpt1ctl_path]
-        self.recdir = '/home/autumn/rec'
-        self.channel_file = '/home/autumn/work/rj/channel.yml'
         self.comm_timeout = 10
         self.job_state = {
             'C': "Completed",

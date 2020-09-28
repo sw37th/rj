@@ -521,7 +521,7 @@ def main():
     schedtype = config.get('scheduler').capitalize()
     module_ = importlib.import_module('rjsched.RecordJob' + schedtype)
     class_ = getattr(module_, 'RecordJob' + schedtype)
-    rec = class_()
+    rec = class_(config)
 
     args = get_args()
     args.func(args, rec, config)
