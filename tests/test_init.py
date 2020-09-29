@@ -7,10 +7,10 @@ class RecordJobTest(TestCase):
     def setUp(self):
         super(RecordJobTest, self).setUp()
         config = {
-            'recpt1_path': '/usr/local/bin/recpt1',
+            'recpt1_path':    '/usr/local/bin/recpt1',
             'recpt1ctl_path': '/usr/local/bin/recpt1ctl',
-            'recdir': '/home/dummy/rec',
-            'channel_file': '/home/dummy/.rj/channel.yml',}
+            'recdir':         '/home/dummy/rec',
+            'channel_file':   '/home/dummy/.rj/channel.yml',}
         self.rec = rjsched.RecordJob(config)
         self.maxDiff = None
 
