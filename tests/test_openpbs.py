@@ -10,7 +10,14 @@ from freezegun import freeze_time
 class RecordJobOpenpbsTest(TestCase):
     def setUp(self):
         super(RecordJobOpenpbsTest, self).setUp()
-        self.rec = RecordJobOpenpbs.RecordJobOpenpbs()
+        config = {
+            'recpt1_path':    '/usr/local/bin/recpt1',
+            'recpt1ctl_path': '/usr/local/bin/recpt1ctl',
+            'recdir':         '/home/dummy/rec',
+            'channel_file':   '/home/dummy/.rj/channel.yml',
+            'pbsexec_dir':    '/work/pbs/bin',
+            'joblog_dir':     '/home/dummy/log',}
+        self.rec = RecordJobOpenpbs.RecordJobOpenpbs(config)
         self.maxDiff = None
 
     def tearDown(self):
@@ -37,13 +44,13 @@ class RecordJobOpenpbsTest(TestCase):
             '-l', 'walltime=1770.0',
             '-l', 'tt=1',
             '-j', 'oe',
-            '-o', '/home/autumn/log',
+            '-o', '/home/dummy/log',
             '-W', 'umask=222',
             '-']
         expected_jobexec_tt = \
             '/usr/local/bin/recpt1 --b25 --strip '\
             '${PBS_JOBNAME##*.} - '\
-            '/home/autumn/rec/${PBS_JOBNAME}.'\
+            '/home/dummy/rec/${PBS_JOBNAME}.'\
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '110.example.org'
 
@@ -63,13 +70,13 @@ class RecordJobOpenpbsTest(TestCase):
             '-l', 'walltime=1770.0',
             '-l', 'bs=1',
             '-j', 'oe',
-            '-o', '/home/autumn/log',
+            '-o', '/home/dummy/log',
             '-W', 'umask=222',
             '-']
         expected_jobexec_tt = \
             '/usr/local/bin/recpt1 --b25 --strip --lnb 15 '\
             '${PBS_JOBNAME##*.} - '\
-            '/home/autumn/rec/${PBS_JOBNAME}.'\
+            '/home/dummy/rec/${PBS_JOBNAME}.'\
             '$(date +%Y%m%d_%H%M.%S).${PBS_JOBID%.*}.ts'
         proc.stdout = '111.example.org'
 
@@ -345,7 +352,7 @@ class RecordJobOpenpbsTest(TestCase):
         proc = MagicMock()
         proc.stdout = qstat_out
         self.rec._run_command = MagicMock(return_value=proc)
-        self.rec.get_channel_info = MagicMock(
+        self.rec.get_channel_list = MagicMock(
             return_value={'25': 'NTV', '181': 'BS-fuji'})
 
         self.rec._fetch_joblist()
