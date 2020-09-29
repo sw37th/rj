@@ -1,6 +1,6 @@
 from copy import deepcopy
 from unittest import TestCase
-from rjsched import RecordJobOpenpbs as rjo
+from rjsched import RecordJobOpenpbs
 from unittest.mock import mock_open, patch, MagicMock
 from datetime import datetime, timedelta
 from subprocess import PIPE, STDOUT, DEVNULL
@@ -10,7 +10,7 @@ from freezegun import freeze_time
 class RecordJobOpenpbsTest(TestCase):
     def setUp(self):
         super(RecordJobOpenpbsTest, self).setUp()
-        self.rec = rjo.RecordJobOpenpbs()
+        self.rec = RecordJobOpenpbs.RecordJobOpenpbs()
         self.maxDiff = None
 
     def tearDown(self):
@@ -18,10 +18,6 @@ class RecordJobOpenpbsTest(TestCase):
 
     def test_classname(self):
         self.assertEqual(str(self.rec), 'RecordJobOpenpbs')
-
-    def test_is_bs(self):
-        self.assertTrue(self.rec._is_bs(64))
-        self.assertFalse(self.rec._is_bs(63))
 
     def test_add(self):
         """
