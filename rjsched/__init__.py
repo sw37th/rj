@@ -1,4 +1,5 @@
 import yaml
+import syslog
 
 class RecordJob:
     def __init__(self, config):
@@ -42,6 +43,13 @@ class RecordJob:
             return {}
 
         return {str(i): str(j) for i, j in chinfo.items()}
+
+    def _logger(self, priority, message):
+        ident = 'recordjob'
+        syslog.openlog(
+            ident=ident, logoption=syslog.LOG_PID, facility=syslog.LOG_LOCAL7)
+        syslog.syslog(priority, message)
+        syslog.closelog()
 
     def change_repeat(self, job, repeat):
         """
