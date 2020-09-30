@@ -1,3 +1,4 @@
+from subprocess import run, PIPE, CalledProcessError, TimeoutExpired
 import yaml
 import syslog
 
@@ -31,6 +32,33 @@ class RecordJob:
         else:
             return False
 
+    def _logger(self, priority, message):
+        ident = 'recordjob'
+        syslog.openlog(
+            ident=ident, logoption=syslog.LOG_PID, facility=syslog.LOG_LOCAL7)
+        syslog.syslog(priority, message)
+        syslog.closelog()
+
+    def _run_command(self, command, _input=None, log=True):
+        """
+        コマンドを実行し、CompletedProcessオブジェクトを返す
+        """
+        if log:
+            self._logger(syslog.LOG_INFO, ' '.join(command))
+        try:
+            proc = run(
+                command,
+                input=_input,
+                stdout=PIPE,
+                stderr=PIPE,
+                universal_newlines=True,
+                timeout=self.comm_timeout,
+                check=True,)
+        except (OSError, TimeoutExpired, CalledProcessError) as err:
+            self._logger(syslog.LOG_ERR, str(err))
+            raise
+        return proc
+
     def get_channel_list(self):
         """
         チャンネル番号と局名の対応表をYAMLファイルから取得して返す
@@ -43,13 +71,6 @@ class RecordJob:
             return {}
 
         return {str(i): str(j) for i, j in chinfo.items()}
-
-    def _logger(self, priority, message):
-        ident = 'recordjob'
-        syslog.openlog(
-            ident=ident, logoption=syslog.LOG_PID, facility=syslog.LOG_LOCAL7)
-        syslog.syslog(priority, message)
-        syslog.closelog()
 
     def change_repeat(self, job, repeat):
         """

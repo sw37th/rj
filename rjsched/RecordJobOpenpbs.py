@@ -1,6 +1,5 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from subprocess import run, PIPE, CalledProcessError, TimeoutExpired
 from textwrap import dedent
 import json
 import os
@@ -24,24 +23,6 @@ class RecordJobOpenpbs(rjsched.RecordJob):
     def __str__(self):
         return self.name
 
-    def _run_command(self, command, _input=None):
-        """
-        コマンドを実行し、CompletedProcessオブジェクトを返す
-        """
-        try:
-            proc = run(
-                command,
-                input=_input,
-                stdout=PIPE,
-                stderr=PIPE,
-                universal_newlines=True,
-                timeout=self.comm_timeout,
-                check=True,)
-        except (TimeoutExpired, CalledProcessError) as err:
-            print('{} failed: {}'.format(command[0], err))
-            raise
-        return proc
-
     def _get_tuner_num(self):
         """
         利用可能なノードのカスタムリソース'tt'、'bs'を集計する
@@ -49,7 +30,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         tuners = {'tt': 0, 'bs': 0}
 
         available = re.compile(r'free|job-busy')
-        proc = self._run_command(self.pbsnodes)
+        proc = self._run_command(self.pbsnodes, log=False)
         nodes = json.loads(proc.stdout).get('nodes', {})
         for v in nodes.values():
             if available.match(v.get('state', '')):
@@ -117,7 +98,7 @@ class RecordJobOpenpbs(rjsched.RecordJob):
         current = datetime.now()
         chlist = self.get_channel_list()
 
-        proc = self._run_command(self.qstat)
+        proc = self._run_command(self.qstat, log=False)
         jobs = json.loads(proc.stdout).get('Jobs', {})
         for k, v in jobs.items():
             # ジョブID、チャンネル番号、番組名
