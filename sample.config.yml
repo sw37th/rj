@@ -9,17 +9,17 @@ recpt1_path: /usr/local/bin/recpt1
 recpt1ctl_path: /usr/local/bin/recpt1ctl
 
 # 録画ファイル出力先ディレクトリ
-recdir: /home/autumn/rec
+recdir: /home/USERNAME/rec
 
 # チャンネル情報ファイル(YAML)
-channel_file: /home/autumn/.rj/channel.yml
+channel_file: /home/USERNAME/.rj/channel.yml
 
 #### rjsched設定(スケジューラー固有設定)
 ## OpenPBS
-pbsexec_dir: /work/pbs/bin
+pbsexec_dir: /PATH/TO/pbs/bin
 
 # ジョブ実行ログ出力先
-joblog_dir: /home/autumn/log
+joblog_dir: /home/USERNAME/log
 
 #### CLI設定
 # 一日の基準時刻(時)
