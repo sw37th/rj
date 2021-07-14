@@ -21,7 +21,7 @@ def load_config():
     """
     try:
         with open(os.path.expanduser('~/.rj/config.yml')) as f:
-            config = yaml.load(f)
+            config = yaml.safe_load(f)
     except (PermissionError, FileNotFoundError, yaml.YAMLError) as err:
         print('config.yml cannot load: {}'.format(err))
         sys.exit(1)

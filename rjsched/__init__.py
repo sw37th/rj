@@ -65,7 +65,7 @@ class RecordJob:
         """
         try:
             with open(self.channel_file) as f:
-                chinfo = yaml.load(f)
+                chinfo = yaml.safe_load(f)
         except (PermissionError, FileNotFoundError, yaml.YAMLError) as err:
             print('channel information cannot load: {}'.format(err))
             return {}
