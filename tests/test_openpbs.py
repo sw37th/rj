@@ -27,10 +27,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(str(self.rec), 'RecordJobOpenpbs')
 
     def test_add(self):
-        """
-        録画予約ジョブ用qsubコマンドの引数と
-        録画用recpt1コマンドの引数を確認
-        """
+        #
+        # 録画予約ジョブ用qsubコマンドの引数と録画用recpt1コマンドの引数を確認
+        #
         joblist_origin = [{'rj_id': '68'}]
         proc = MagicMock()
         self.rec._run_command = MagicMock(return_value=proc)
@@ -89,9 +88,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(joblist, joblist_origin)
 
     def test_remove(self):
-        """
-        ジョブ削除の際のqdelコマンドの引数、戻り値を確認
-        """
+        #
+        # ジョブ削除の際のqdelコマンドの引数、戻り値を確認
+        #
         self.rec._run_command = MagicMock()
         self.rec.get_job_list = MagicMock()
         jid = '1'
@@ -117,9 +116,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(joblist, [])
 
     def test_change_begin(self):
-        """
-        録画開始時間変更の際のqalterコマンドの引数、戻り値を確認
-        """
+        #
+        # 録画開始時間変更の際のqalterコマンドの引数、戻り値を確認
+        #
         begin = datetime(2020, 8, 16, 0, 0, 0)
         delta = timedelta(seconds=300)
         joblist = [{'rj_id': '1', 'rec_begin': begin}]
@@ -148,9 +147,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(result2, joblist)
 
     def test_change_rectime(self):
-        """
-        録画時間変更の際のqalterコマンドの引数、戻り値を確認
-        """
+        #
+        # 録画時間変更の際のqalterコマンドの引数、戻り値を確認
+        #
         joblist = [{'rj_id': '1', 'walltime': timedelta(seconds=1770)}]
 
         self.rec._run_command = MagicMock()
@@ -180,9 +179,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(result2, joblist)
 
     def test_change_jobname(self):
-        """
-        ジョブ名変更の際のqalterコマンドの引数、戻り値を確認
-        """
+        #
+        # ジョブ名変更の際のqalterコマンドの引数、戻り値を確認
+        #
         joblist = [{'rj_id': '1', 'rj_title': 'origin', 'channel': '15'}]
         self.rec._run_command = MagicMock()
         self.rec.get_job_list = MagicMock(return_value=joblist)
@@ -209,14 +208,13 @@ class RecordJobOpenpbsTest(TestCase):
             expected_change_channel_command)
         self.assertEqual(result2, joblist)
 
-    """
-    現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
-    """
+    # 現在時刻を2020年08月16日 20時03分00秒(1597575780)に固定
     @freeze_time('2020-08-16 20:03:00')
     def test_fetch_joblist(self):
-        """
-        qstatコマンドの出力から内部的なジョブ情報リストに変換されることを確認
-        """
+        #
+        # qstatコマンドの出力から内部的なジョブ情報リストに変換されることを確認
+        #
+
         # qstatコマンド出力のダミー
         # 2020年08月16日 20時03分00秒(1597575780)の時点で
         #   68: 衛星放送 待機中(W)
@@ -428,9 +426,9 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(self.rec.joblist, joblist_with_notrecjob_expected)
 
     def test_get_job_list(self):
-        """
-        get_job_list()の引数に応じたジョブ情報のリストが返ってくることを確認
-        """
+        #
+        # get_job_list()の引数に応じたジョブ情報のリストが返ってくることを確認
+        #
         joblist_all = [
             {'rj_id': '69'},
             {'rj_id': '71'},
@@ -468,10 +466,10 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(joblist, joblist_all)
 
     def test_get_tuner_num(self):
-        """
-        pbsnodesコマンドの出力に応じてカスタムリソース'bs'、'tt'が
-        集計されることを確認
-        """
+        #
+        # pbsnodesコマンドの出力に応じてカスタムリソース'bs'、'tt'が
+        # 集計されることを確認
+        #
         proc = MagicMock()
         self.rec._run_command = MagicMock(return_value=proc)
 
@@ -576,10 +574,10 @@ class RecordJobOpenpbsTest(TestCase):
         self.assertEqual(tuners, expected_include_jobbusy)
 
     def test_check_tuner_resource(self):
-        """
-        同時録画数がチューナー数を超えた場合に
-        当該ジョブのalert属性に警告文がつくことを確認
-        """
+        #
+        # 同時録画数がチューナー数を超えた場合に
+        # 当該ジョブのalert属性に警告文がつくことを確認
+        #
         message = 'Out of Tuners. Max: 2'
         self.rec._get_tuner_num = MagicMock(return_value={'tt': 2, 'bs': 2})
 
