@@ -126,7 +126,7 @@ class CliUtilTest(TestCase):
             functions['parse_time'].assert_called_once_with(timestr)
             self.assertEqual(result, expect)
 
-    def test_parse_date(self):
+    def test_parse_date_yyyymmdd(self):
         """
         YYYY/MM/DD or MM/DD
         """
@@ -170,6 +170,7 @@ class CliUtilTest(TestCase):
             cliutil.parse_date(datestr)
             mock.assert_called_once_with(datestr)
 
+    def test_parse_date_weekday(self):
         """
         'sun|mon|tue|wed|thu|fri|sat'
         """
@@ -218,6 +219,7 @@ class CliUtilTest(TestCase):
             cliutil.parse_date(datestr, 2)
             mock.assert_called_once_with(datestr, 2)
 
+    def test_parse_date_today(self):
         """
         'today'
         """
@@ -231,6 +233,7 @@ class CliUtilTest(TestCase):
             cliutil.parse_date(datestr, day_change_hour=5)
             mock.assert_called_once_with(5)
 
+    def test_parse_date_plusN(self):
         """
         '+N'
         """
@@ -244,6 +247,7 @@ class CliUtilTest(TestCase):
             cliutil.parse_date(datestr, day_change_hour=5)
             mock.assert_called_once_with(3, 5)
 
+    def test_parse_date_invalid(self):
         """
         invalid value
         """
@@ -282,38 +286,42 @@ class CliUtilTest(TestCase):
             functions['_days_from_today'].assert_not_called()
             self.assertIsNone(result)
 
-    def test_yyyymmdd(self):
+    def test_yyyymmdd_yyyymmdd(self):
         """
         'YYYY/MM/DD'
         """
-        datestr1 = '2020/09/01'
-        expect1 = datetime(year=2020, month=9, day=1)
-        result1 = cliutil._yyyymmdd(datestr1)
-        self.assertEqual(result1, expect1)
+        datestr = '2020/09/01'
+        expect = datetime(year=2020, month=9, day=1)
+        result = cliutil._yyyymmdd(datestr)
+        self.assertEqual(result, expect)
 
+    def test_yyyymmdd_mmdd(self):
         """
         'MM/DD'
         """
-        datestr2 = '09/01'
-        expect2 = datetime(year=2020, month=9, day=1)
-        result2 = cliutil._yyyymmdd(datestr2)
-        self.assertEqual(result2, expect2)
+        with freeze_time("2020-09-01"):
+            datestr = '09/01'
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._yyyymmdd(datestr)
+            self.assertEqual(result, expect)
 
+    def test_yyyymmdd_nextyear(self):
+        """
+        年またぎ録画予約
+        """
         with freeze_time("2020-12-01"):
-            """
-            年またぎ録画予約
-            """
-            datestr3 = '01/01'
-            expect3 = datetime(year=2021, month=1, day=1)
-            result3 = cliutil._yyyymmdd(datestr3)
-            self.assertEqual(result3, expect3)
+            datestr = '01/01'
+            expect = datetime(year=2021, month=1, day=1)
+            result = cliutil._yyyymmdd(datestr)
+            self.assertEqual(result, expect)
 
+    def test_yyyymmdd_invalid_date(self):
         """
-        Invalid Value
+        Invalid Date
         """
-        datestr3 = '2020/20/40'
-        result3 = cliutil._yyyymmdd(datestr3)
-        self.assertIsNone(result3)
+        datestr = '2020/20/40'
+        result = cliutil._yyyymmdd(datestr)
+        self.assertIsNone(result)
 
     def test_weekday(self):
         """
@@ -323,109 +331,110 @@ class CliUtilTest(TestCase):
             """
             現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
-            datestr1 = 'tue'
-            expect1 = datetime(year=2020, month=9, day=1)
-            result1 = cliutil._weekday(datestr1)
-            self.assertEqual(result1, expect1)
+            datestr = 'tue'
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr2 = 'WED'
-            expect2 = datetime(year=2020, month=9, day=2)
-            result2 = cliutil._weekday(datestr2)
-            self.assertEqual(result2, expect2)
+            datestr = 'WED'
+            expect = datetime(year=2020, month=9, day=2)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr3 = 'tHU'
-            expect3 = datetime(year=2020, month=9, day=3)
-            result3 = cliutil._weekday(datestr3)
-            self.assertEqual(result3, expect3)
+            datestr = 'tHU'
+            expect = datetime(year=2020, month=9, day=3)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr4 = 'frI'
-            expect4 = datetime(year=2020, month=9, day=4)
-            result4 = cliutil._weekday(datestr4)
-            self.assertEqual(result4, expect4)
+            datestr = 'frI'
+            expect = datetime(year=2020, month=9, day=4)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr5 = 'sAt'
-            expect5 = datetime(year=2020, month=9, day=5)
-            result5 = cliutil._weekday(datestr5)
-            self.assertEqual(result5, expect5)
+            datestr = 'sAt'
+            expect = datetime(year=2020, month=9, day=5)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr6 = 'SUn'
-            expect6 = datetime(year=2020, month=9, day=6)
-            result6 = cliutil._weekday(datestr6)
-            self.assertEqual(result6, expect6)
+            datestr = 'SUn'
+            expect = datetime(year=2020, month=9, day=6)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
-            datestr7 = 'Mon'
-            expect7 = datetime(year=2020, month=9, day=7)
-            result7 = cliutil._weekday(datestr7)
-            self.assertEqual(result7, expect7)
+            datestr = 'Mon'
+            expect = datetime(year=2020, month=9, day=7)
+            result = cliutil._weekday(datestr)
+            self.assertEqual(result, expect)
 
+    def test_weekday_2am(self):
         """
         day_change_hour=2
         """
         with freeze_time("2020-09-01 00:00:00"):    # 8/31 Mon 24:00
-            datestr8 = 'Mon'
-            expect8 = datetime(year=2020, month=8, day=31)
-            result8 = cliutil._weekday(datestr8, day_change_hour=2)
-            self.assertEqual(result8, expect8)
+            datestr = 'Mon'
+            expect = datetime(year=2020, month=8, day=31)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-02 00:00:00"):    # 9/1 Tue 24:00
-            datestr9 = 'Tue'
-            expect9 = datetime(year=2020, month=9, day=1)
-            result9 = cliutil._weekday(datestr9, day_change_hour=2)
-            self.assertEqual(result9, expect9)
+            datestr = 'Tue'
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-03 00:00:00"):    # 9/2 Wed 24:00
-            datestr10 = 'Wed'
-            expect10 = datetime(year=2020, month=9, day=2)
-            result10 = cliutil._weekday(datestr10, day_change_hour=2)
-            self.assertEqual(result10, expect10)
+            datestr = 'Wed'
+            expect = datetime(year=2020, month=9, day=2)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-04 00:00:00"):    # 9/3 Thu 24:00
-            datestr11 = 'Thu'
-            expect11 = datetime(year=2020, month=9, day=3)
-            result11 = cliutil._weekday(datestr11, day_change_hour=2)
-            self.assertEqual(result11, expect11)
+            datestr = 'Thu'
+            expect = datetime(year=2020, month=9, day=3)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-05 00:00:00"):    # 9/4 Fri 24:00
-            datestr12 = 'Fri'
-            expect12 = datetime(year=2020, month=9, day=4)
-            result12 = cliutil._weekday(datestr12, day_change_hour=2)
-            self.assertEqual(result12, expect12)
+            datestr = 'Fri'
+            expect = datetime(year=2020, month=9, day=4)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-06 00:00:00"):    # 9/5 Sat 24:00
-            datestr13 = 'Sat'
-            expect13 = datetime(year=2020, month=9, day=5)
-            result13 = cliutil._weekday(datestr13, day_change_hour=2)
-            self.assertEqual(result13, expect13)
+            datestr = 'Sat'
+            expect = datetime(year=2020, month=9, day=5)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-07 00:00:00"):    # 9/6 Sun 24:00
-            datestr14 = 'Sun'
-            expect14 = datetime(year=2020, month=9, day=6)
-            result14 = cliutil._weekday(datestr14, day_change_hour=2)
-            self.assertEqual(result14, expect14)
+            datestr = 'Sun'
+            expect = datetime(year=2020, month=9, day=6)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 00:00:00"):    # 8/31 Mon 24:00
-            datestr15 = 'Tue'
-            expect15 = datetime(year=2020, month=9, day=1)
-            result15 = cliutil._weekday(datestr15, day_change_hour=2)
-            self.assertEqual(result15, expect15)
+            datestr = 'Tue'
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 01:59:59"):    # 8/31 Mon 25:59:59
             """
             現在時刻がday_change_hour=2未満なので前曜日扱い
             """
-            datestr16 = 'Mon'
-            expect16 = datetime(year=2020, month=8, day=31)
-            result16 = cliutil._weekday(datestr16, day_change_hour=2)
-            self.assertEqual(result16, expect16)
+            datestr = 'Mon'
+            expect = datetime(year=2020, month=8, day=31)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 02:00:00"):    # 9/1 Tue 02:00:00
             """
             現在時刻がday_change_hour=2を過ぎたので翌週曜日扱い
             """
-            datestr17 = 'Mon'
-            expect17 = datetime(year=2020, month=9, day=7)
-            result17 = cliutil._weekday(datestr17, day_change_hour=2)
-            self.assertEqual(result17, expect17)
+            datestr = 'Mon'
+            expect = datetime(year=2020, month=9, day=7)
+            result = cliutil._weekday(datestr, day_change_hour=2)
+            self.assertEqual(result, expect)
 
     def test_today(self):
         """
@@ -435,14 +444,15 @@ class CliUtilTest(TestCase):
             """
             現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
-            expect1 = datetime(year=2020, month=9, day=1)
-            result1 = cliutil._today()
-            self.assertEqual(result1, expect1)
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._today()
+            self.assertEqual(result, expect)
 
-            expect2 = datetime(year=2020, month=9, day=1)
-            result2 = cliutil._today()
-            self.assertEqual(result2, expect2)
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._today()
+            self.assertEqual(result, expect)
 
+    def test_today_2am(self):
         """
         day_change_hour=2
         """
@@ -450,33 +460,33 @@ class CliUtilTest(TestCase):
             """
             現在時刻を2020/09/01 00:00:00 火曜日に固定
             """
-            expect3 = datetime(year=2020, month=8, day=31)
-            result3 = cliutil._today(day_change_hour=2)
-            self.assertEqual(result3, expect3)
+            expect = datetime(year=2020, month=8, day=31)
+            result = cliutil._today(day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 01:00:00"):
             """
             現在時刻を2020/09/01 01:00:00 火曜日に固定
             """
-            expect4 = datetime(year=2020, month=8, day=31)
-            result4 = cliutil._today(day_change_hour=2)
-            self.assertEqual(result4, expect4)
+            expect = datetime(year=2020, month=8, day=31)
+            result = cliutil._today(day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 01:59:59"):
             """
             現在時刻を2020/09/01 01:59:59 火曜日に固定
             """
-            expect5 = datetime(year=2020, month=8, day=31)
-            result5 = cliutil._today(day_change_hour=2)
-            self.assertEqual(result5, expect5)
+            expect = datetime(year=2020, month=8, day=31)
+            result = cliutil._today(day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 02:00:00"):
             """
             現在時刻を2020/09/01 02:00:00 火曜日に固定
             """
-            expect6 = datetime(year=2020, month=9, day=1)
-            result6 = cliutil._today(day_change_hour=2)
-            self.assertEqual(result6, expect6)
+            expect = datetime(year=2020, month=9, day=1)
+            result = cliutil._today(day_change_hour=2)
+            self.assertEqual(result, expect)
 
     def test_days_from_today(self):
         """
@@ -488,34 +498,34 @@ class CliUtilTest(TestCase):
             """
             days = 7
 
-            expect1 = datetime(year=2020, month=9, day=8)
-            result1 = cliutil._days_from_today(days)
-            self.assertEqual(result1, expect1)
+            expect = datetime(year=2020, month=9, day=8)
+            result = cliutil._days_from_today(days)
+            self.assertEqual(result, expect)
 
             """
             day_change_hour=2
             """
-            expect2 = datetime(year=2020, month=9, day=7)
-            result2 = cliutil._days_from_today(days, day_change_hour=2)
-            self.assertEqual(result1, expect1)
+            expect = datetime(year=2020, month=9, day=7)
+            result = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 01:59:59"):
             """
             現在時刻を2020/09/01 01:59:59 火曜日に固定
             """
-            expect3 = datetime(year=2020, month=9, day=7)
-            result3 = cliutil._days_from_today(days, day_change_hour=2)
-            self.assertEqual(result3, expect3)
+            expect = datetime(year=2020, month=9, day=7)
+            result = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result, expect)
 
         with freeze_time("2020-09-01 02:00:00"):
             """
             現在時刻を2020/09/01 02:00:00 火曜日に固定
             """
-            expect4 = datetime(year=2020, month=9, day=8)
-            result4 = cliutil._days_from_today(days, day_change_hour=2)
-            self.assertEqual(result4, expect4)
+            expect = datetime(year=2020, month=9, day=8)
+            result = cliutil._days_from_today(days, day_change_hour=2)
+            self.assertEqual(result, expect)
 
-    def test_parse_time(self):
+    def test_parse_time_hhmmss(self):
         """
         HH:MM:SS
         """
@@ -549,6 +559,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_hhmm(self):
         """
         HH:MM
         """
@@ -562,6 +573,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_sec(self):
         """
         '秒数'
         """
@@ -570,6 +582,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_invalid(self):
         """
         invalid strings
         """
@@ -593,7 +606,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time(timestr)
         self.assertIsNone(result)
 
-    def test_parse_time_delta(self):
+    def test_parse_time_delta_hhmmss(self):
         """
         HH:MM:SS[+-]
         """
@@ -627,6 +640,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time_delta(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_delta_hhmm(self):
         """
         HH:MM[+-]
         """
@@ -650,6 +664,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time_delta(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_delta_sec(self):
         """
         seconds[+-]
         """
@@ -663,6 +678,7 @@ class CliUtilTest(TestCase):
         result = cliutil.parse_time_delta(timestr)
         self.assertEqual(result, expect)
 
+    def test_parse_time_delta_invalid(self):
         """
         invalid strings
         """
