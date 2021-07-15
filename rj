@@ -325,7 +325,7 @@ def chlist(args, rec, config):
     chlist = rec.get_channel_list()
     print('  Ch: TV station name')
     print(' ---- ----------------')
-    for name, num in sorted(chlist.items(), key=lambda x: x[0]):
+    for name, num in sorted(chlist.items(), key=lambda x: int(x[0])):
         print('{:>4}: {}'.format(name, num))
 
 """
