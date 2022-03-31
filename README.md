@@ -1,10 +1,7 @@
 # rj
-rjはLinuxでのTV録画予約用コマンドラインスクリプトです。
-バックエンドのジョブスケジューラーは下記のいずれかが選択できます。
+rjはLinuxでのTV録画予約用コマンドラインスクリプトです。バックエンドのジョブスケジューラーはOpenPBSを使用します。
 
 * [OpenPBS](https://www.openpbs.org/)
-* [systemd timer](https://www.freedesktop.org/software/systemd/man/systemd.timer.html)
-* [TORQUE Resource Manager](https://github.com/adaptivecomputing/torque)
 
 実行にはPython 3.6以降が必要です。
 
@@ -12,38 +9,35 @@ rjはLinuxでのTV録画予約用コマンドラインスクリプトです。
 
 NOTE: チューナーデバイスのドライバとrecpt1コマンドのセットアップは完了しているものとします。
 
-GitHubのリポジトリからcloneします。
-```
-$ git clone https://github.com/sw37th/rj.git
-```
-
 依存するPythonライブラリをインストールします。今のところ、rjはPyYAMLを使用します。
 ```
 $ sudo apt install python3-yaml
 ```
 
+GitHubからrjをgit cloneします。
+```
+$ git clone https://github.com/sw37th/rj.git
+$ cd rj/
+```
+
 ## Set up
 
-### スケジューラーにSystemdを使用する場合
-
-`~/.config/systemd/user`ディレクトリが存在しない場合は作成します。
-```
-$ mkdir -m 700 ~/.config
-$ mkdir -m 755 ~/.config/{systemd,systemd/user}
-```
-
-NOTE: `~/.config`ディレクトリは次回ログイン時から利用できます。一旦ログアウトし、再ログインしてください。
-
-### 全スケジューラー共通
-
-`~/.rj`ディレクトリを作成し、`channel.yml`ファイルを配置します。
+`~/.rj`ディレクトリを作成し、`config.yml`ファイルと`channel.yml`ファイルを配置します。
 ```
 $ mkdir ~/.rj
-$ cp rj/channel.yml ~/.rj
+$ cp -p sample.channel.yml ~/.rj/channel.yml
+$ cp -p sample.config.yml ~/.rj/config.yml
+```
+
+`~/.rj/config.yml`を編集し、`USERNAME`、`/PATH/TO/`をそれぞれ適宜変更してください。
+```
+$ vi ~/.rj/config.yml
 ```
 
 `~/.rj/channel.yml`を編集し、お住いの地域の物理チャンネル番号とテレビ局名に変更します。
-( https://ja.wikipedia.org/wiki/テレビ周波数チャンネル )
+
+参考: https://ja.wikipedia.org/wiki/テレビ周波数チャンネル
+
 ```
 $ vi ~/.rj/channel.yml
 ```
@@ -51,6 +45,12 @@ $ vi ~/.rj/channel.yml
 `~/rec`ディレクトリを作成します。録画ファイルはこのディレクトリに作成されます。
 ```
 $ mkdir ~/rec
+```
+
+`~/log`ディレクトリを作成します。ジョブ実行ログはこのディレクトリに出力されます。
+
+```
+$ mkdir ~/log
 ```
 
 ## Usage
@@ -117,7 +117,7 @@ ID    Channel        Title                    Start           Rectime  User     
 259   15  MX         rezero_2nd               Wed 09/23 23:30 00:29:30 autumn   tt
 ```
 
-日付や曜日指定もできます。
+引数に日付や曜日を指定できます。
 
 ```
 $ ./rj list 9/22
@@ -134,7 +134,7 @@ ID    Channel        Title                    Start           Rectime  User     
 
 ### 予約削除
 
-`rj del`で録画予約を削除します。
+`rj del`の引数にIDを指定して録画予約を削除します。
 
 ```
 $ ./rj del 262
