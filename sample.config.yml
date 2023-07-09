@@ -29,8 +29,8 @@ day_change_hour: 5
 
 # 録画開始のマージン
 # ジョブがスタートしてから実際に録画開始されるまでタイムラグがあるため、
-# 指定時刻よりwormup_sec秒だけ早くジョブを開始する。
-wormup_sec: 30
+# 指定時刻よりwarmup_sec秒だけ早くジョブを開始する。
+warmup_sec: 30
 
 # デフォルトの録画時間(秒)
 default_rectime: 00:29:30

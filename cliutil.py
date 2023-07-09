@@ -14,7 +14,7 @@ def is_future(begin):
     else:
         return False
 
-def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
+def parse_start_time(datestr, timestr, warmup_sec=0, day_change_hour=0):
     """
     datestr: (str)
         'YYYY/MM/DD|MM/DD|DD' or
@@ -25,10 +25,10 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
         'HH:MM:SS' or
         'HH:MM' or
         'seconds'
-    wormup_sec: (int)
+    warmup_sec: (int)
         録画開始までのマージン
         ジョブがスタートしてから実際に録画開始されるまでのタイムラグを考慮し
-        指定時刻よりwormup_sec秒だけジョブ開始時刻を早める。
+        指定時刻よりwarmup_sec秒だけジョブ開始時刻を早める。
     day_change_hour: (int)
         日付が変わったと見なす時刻
         day_change_hour=0の場合、00:00:00 - 23:59:59 を1日と判定する
@@ -39,7 +39,7 @@ def parse_start_time(datestr, timestr, wormup_sec=0, day_change_hour=0):
     time_ = parse_time(timestr)
 
     if date_ and time_:
-        begin = date_ + time_ - timedelta(seconds=wormup_sec)
+        begin = date_ + time_ - timedelta(seconds=warmup_sec)
 
     return begin
 
