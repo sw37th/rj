@@ -41,12 +41,12 @@ class CliUtilTest(TestCase):
     def test_parse_start_time(self):
         #
         # parse_date(), parse_time()が適切な引数で呼ばれることを確認
-        # wormup_sec秒分だけ前倒しされていることを確認
+        # warmup_sec秒分だけ前倒しされていることを確認
         #
         datestr = '2020/09/01'
         timestr = '01:00:00'
 
-        # without wormup_sec, day_change_hour
+        # without warmup_sec, day_change_hour
         with patch.multiple(
             'cliutil',
             parse_date=DEFAULT,
@@ -63,7 +63,7 @@ class CliUtilTest(TestCase):
             functions['parse_time'].assert_called_once_with(timestr)
             self.assertEqual(result, expect)
 
-        # with wormup_sec=30, without day_change_hour
+        # with warmup_sec=30, without day_change_hour
         with patch.multiple(
             'cliutil',
             parse_date=DEFAULT,
@@ -73,7 +73,7 @@ class CliUtilTest(TestCase):
                 year=2020, month=9, day=1)
             functions['parse_time'].return_value = timedelta(hours=1)
 
-            result = cliutil.parse_start_time(datestr, timestr, wormup_sec=30)
+            result = cliutil.parse_start_time(datestr, timestr, warmup_sec=30)
             expect = datetime(
                 year=2020, month=9, day=1, hour=0, minute=59, second=30)
 
@@ -81,7 +81,7 @@ class CliUtilTest(TestCase):
             functions['parse_time'].assert_called_once_with(timestr)
             self.assertEqual(result, expect)
 
-        # with day_change_hour=2, without wormup_sec
+        # with day_change_hour=2, without warmup_sec
         with patch.multiple(
             'cliutil',
             parse_date=DEFAULT,
@@ -99,7 +99,7 @@ class CliUtilTest(TestCase):
             functions['parse_time'].assert_called_once_with(timestr)
             self.assertEqual(result, expect)
 
-        # with wormup_sec=30, day_change_hour=2
+        # with warmup_sec=30, day_change_hour=2
         with patch.multiple(
             'cliutil',
             parse_date=DEFAULT,
@@ -109,7 +109,7 @@ class CliUtilTest(TestCase):
             functions['parse_time'].return_value = timedelta(hours=1)
 
             result = cliutil.parse_start_time(
-                    datestr, timestr, wormup_sec=30, day_change_hour=2)
+                    datestr, timestr, warmup_sec=30, day_change_hour=2)
             expect = datetime(
                 year=2020, month=9, day=1, hour=0, minute=59, second=30)
 

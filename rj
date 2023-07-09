@@ -115,7 +115,7 @@ def add_(args, rec, config):
     """
     録画ジョブを追加する
     """
-    wormup_sec = config.get('wormup_sec')
+    warmup_sec = config.get('warmup_sec')
     day_change_hour = config.get('day_change_hour')
 
     # 引数チェック(チャンネル)
@@ -125,7 +125,7 @@ def add_(args, rec, config):
 
     # 引数チェック(開始時刻)
     begin = cliutil.parse_start_time(
-        args.date, args.time, wormup_sec, day_change_hour)
+        args.date, args.time, warmup_sec, day_change_hour)
     if not begin:
         print('Invalid date, time: {} {}'.format(date, time))
         sys.exit(1)
@@ -215,11 +215,11 @@ def modbegin(args, rec, config):
         # 絶対時刻で変更
         date_ = args.date
         time_ = args.time
-        wormup_sec = config.get('wormup_sec')
+        warmup_sec = config.get('warmup_sec')
         day_change_hour = config.get('day_change_hour')
 
         begin = cliutil.parse_start_time(
-            date_, time_, wormup_sec, day_change_hour)
+            date_, time_, warmup_sec, day_change_hour)
         if not begin:
             print('Invalid date time: {} {}'.format(date_, time_))
             sys.exit(1)
@@ -340,7 +340,7 @@ def print_joblist(joblist, config, date=None):
     ジョブの配列を受け取り一覧表示する
     """
     dateline = config.get('day_change_hour', 0)
-    wormup = config.get('wormup_sec', 0)
+    warmup = config.get('warmup_sec', 0)
     tmpl_header = '{_id:5} {_channel:14} {_title:24} {_start:18} '\
         '{_rectime:8} {_user:8} {_tuner:5}'
     header = tmpl_header.format(
@@ -375,7 +375,7 @@ def print_joblist(joblist, config, date=None):
     prev_wday = ''
     for j in joblist:
         # 表示用に録画開始時刻マージン分を加算
-        begin = j.get('rec_begin') + timedelta(seconds=wormup)
+        begin = j.get('rec_begin') + timedelta(seconds=warmup)
 
         # ジョブ開始時刻
         starttime = str_w_ymd_hms(begin, dateline, False, True)
@@ -423,11 +423,11 @@ def print_job_information(joblist, config):
     ジョブの配列を受け取り詳細情報を表示する
     """
     dateline = config.get('day_change_hour', 0)
-    wormup = config.get('wormup_sec', 0)
+    warmup = config.get('warmup_sec', 0)
     for j in joblist:
         # 表示用に録画開始時刻マージン分を加算
-        begin = j.get('rec_begin') + timedelta(seconds=wormup)
-        end = j.get('rec_end') + timedelta(seconds=wormup)
+        begin = j.get('rec_begin') + timedelta(seconds=warmup)
+        end = j.get('rec_end') + timedelta(seconds=warmup)
 
         # ジョブ開始時刻
         starttime = str_w_ymd_hms(begin, dateline, year=True, sec=True)
