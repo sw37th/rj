@@ -38,7 +38,7 @@ def parse_start_time(datestr, timestr, warmup_sec=0, day_change_hour=0):
     date_ = parse_date(datestr, day_change_hour)
     time_ = parse_time(timestr)
 
-    if date_ and time_:
+    if date_ is not None and time_ is not None:
         begin = date_ + time_ - timedelta(seconds=warmup_sec)
 
     return begin

@@ -127,7 +127,7 @@ def add_(args, rec, config):
     begin = cliutil.parse_start_time(
         args.date, args.time, warmup_sec, day_change_hour)
     if not begin:
-        print('Invalid date, time: {} {}'.format(date, time))
+        print('Invalid date, time: {} {}'.format(args.date, args.time))
         sys.exit(1)
 
     if not cliutil.is_future(begin):
