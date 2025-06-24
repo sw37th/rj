@@ -127,12 +127,12 @@ class RecordJobOpenpbs(rjsched.RecordJob):
             if state == "W":
                 # waiting
                 job['rec_begin'] = datetime.strptime(
-                    v.get('Execution_Time'), "%a %b %d %H:%M:%S %Y")
+                    v.get('Execution_Time', "Thu Jan  1 00:00:00 1970"), "%a %b %d %H:%M:%S %Y")
                 job['elapse'] = None
             else:
                 # queued or running
                 job['rec_begin'] = datetime.strptime(
-                    v.get('etime'), "%a %b %d %H:%M:%S %Y")
+                    v.get('etime', "Thu Jan  1 00:00:00 1970"), "%a %b %d %H:%M:%S %Y")
                 job['elapse'] = current - job['rec_begin']
                 job['exec_host'] = v.get('exec_host', 'dummy/dummy').split('/')[0]
             job['rec_end'] = job['rec_begin'] + job['walltime']
